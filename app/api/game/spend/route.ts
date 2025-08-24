@@ -1,37 +1,44 @@
+// app/api/game/spend/route.ts
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "../../auth/[...nextauth]/route"; // pad aanpassen indien nodig
-import { prisma } from "@/lib/prisma"; // jouw prisma import
+import { getUserFromCookie } from "../../../../lib/auth";
+import { prisma } from "../../../../lib/prisma";
 
-export async function POST(request: Request) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
-    }
+export const dynamic = "force-dynamic";
 
-    const { amount } = await request.json();
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      select: { id: true, money: true },
-    });
-    if (!user) {
-      return NextResponse.json({ error: "USER_NOT_FOUND" }, { status: 404 });
-    }
-
-    if (user.money < amount) {
-      // Belangrijk: GEEN server redirect hier als je via fetch post
-      return NextResponse.json({ error: "INSUFFICIENT_FUNDS" }, { status: 402 });
-    }
-
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { money: { decrement: amount } },
-    });
-
-    return NextResponse.json({ ok: true });
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json({ error: "UNKNOWN_ERROR" }, { status: 500 });
+export async function POST(req: Request) {
+  const me = getUserFromCookie();
+  if (!me?.id) {
+    return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
   }
+
+  const body = await req.json().catch(() => ({} as any));
+  const raw = Number(body?.amount);
+  const amount = Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 0;
+  const reason = String(body?.reason ?? "SPEND");
+
+  if (amount <= 0) {
+    return NextResponse.json({ error: "INVALID_AMOUNT" }, { status: 400 });
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: me.id },
+    select: { id: true, money: true },
+  });
+  if (!user) return NextResponse.json({ error: "USER_NOT_FOUND" }, { status: 404 });
+
+  if ((user.money ?? 0) < amount) {
+    return NextResponse.json({ error: "INSUFFICIENT_FUNDS", need: amount }, { status: 400 });
+  }
+
+  const updated = await prisma.user.update({
+    where: { id: user.id },
+    data: { money: { decrement: amount } },
+    select: { money: true },
+  });
+
+  await prisma.actionLog.create({
+    data: { userId: user.id, type: reason, cost: amount, influenceChange: 0 },
+  });
+
+  return NextResponse.json({ ok: true, money: updated.money });
 }
