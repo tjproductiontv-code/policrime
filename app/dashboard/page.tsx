@@ -1,9 +1,10 @@
 // app/dashboard/page.tsx
+import type { ComponentType } from "react";
 import { getUserFromCookie } from "../../lib/auth";
 import { prisma } from "../../lib/prisma";
 import Countdown from "../../components/Countdown";
 import { settlePassiveIncome } from "../../lib/passive";
-import DashboardHealthCard from "../../components/DashboardHealthCard"; // ⬅️ gebruikt voor "Reputatie"
+import DashboardHealthCard from "../../components/DashboardHealthCard"; // let op: exacte bestandsnaam/case
 
 export const dynamic = "force-dynamic";
 
@@ -118,6 +119,13 @@ function RankGrid({ level }: { level: number }) {
   );
 }
 
+// ✨ Getypte alias voor je bestaande component (geen ts-ignore nodig)
+const HealthCard = DashboardHealthCard as unknown as ComponentType<{
+  title: string;
+  value: number | string;
+  percent?: number;
+}>;
+
 export default async function Dashboard() {
   // Auth
   const me = await getUserFromCookie();
@@ -211,11 +219,9 @@ export default async function Dashboard() {
         <RankGrid level={level} />
       </section>
 
-      {/* Reputatie — gebruikt je bestaande card component */}
+      {/* Reputatie — gebruikt je bestaande card component (via getypte alias) */}
       <section>
-        {/* Als jouw component andere props verwacht, pas hier aan; we casten naar any om TS strict te ontwijken indien nodig */}
-        {/** @ts-expect-error - externe component props kunnen verschillen */}
-        <DashboardHealthCard title="Reputatie" value={reputation} percent={reputation} />
+        <HealthCard title="Reputatie" value={reputation} percent={reputation} />
       </section>
 
       {/* Passief inkomen */}
