@@ -1,8 +1,6 @@
 // app/privileges/page.tsx
 export const dynamic = "force-dynamic";
-
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { getUserFromCookie } from "../../lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PRIVILEGE_CATALOG } from "@/lib/privileges";
 import PrivilegeCard from "../../components/PrivilegeCard";

@@ -1,5 +1,4 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "../api/auth/[...nextauth]/route";
+import { getUserFromCookie } from "../../lib/auth";
 import { prisma } from "@/lib/prisma";
 import BuyVotesForm from "../../components/BuyVotesForm";
 import { VOTE_PRICE } from "@/lib/game";

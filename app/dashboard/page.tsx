@@ -1,5 +1,4 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { getUserFromCookie } from "../../lib/auth";
 import { prisma } from "@/lib/prisma";
 import Countdown from "../../components/Countdown";
 import { settlePassiveIncome } from "@/lib/passive";

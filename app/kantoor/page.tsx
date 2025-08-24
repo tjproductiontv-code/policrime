@@ -1,6 +1,5 @@
 // app/kantoor/page.tsx
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { getUserFromCookie } from "../../lib/auth";
 import { prisma } from "@/lib/prisma";
 import { INVESTIGATOR_PRICE } from "@/lib/investigations";
 import { settleInvestigationsForUser } from "@/lib/settleInvestigations";
