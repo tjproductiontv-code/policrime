@@ -1,13 +1,33 @@
 // middleware.ts
-import { withAuth } from "next-auth/middleware";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
-export default withAuth({
-  pages: { signIn: "/sign-in" },
-});
+const COOKIE_NAME = "polipower_token";
 
+// Routes die alleen voor ingelogde users zijn
+const PROTECTED = [
+  "/dashboard",
+  "/dossiers",
+  "/kantoor",
+  "/privileges",
+  "/votes",
+  "/earn",
+];
+
+export function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl;
+  const needsAuth = PROTECTED.some((p) => pathname.startsWith(p));
+  if (!needsAuth) return NextResponse.next();
+
+  const token = req.cookies.get(COOKIE_NAME)?.value;
+  if (!token) {
+    const url = new URL("/sign-in", req.url);
+    return NextResponse.redirect(url);
+  }
+  return NextResponse.next();
+}
+
+// Alleen matchen op protected paden
 export const config = {
-  matcher: [
-    // Alles beveiligen behalve API, static files, favicon en de login/registratie
-    "/((?!api|_next/static|_next/image|favicon.ico|sign-in|sign-up).*)",
-  ],
+  matcher: ["/dashboard/:path*", "/dossiers/:path*", "/kantoor/:path*", "/privileges/:path*", "/votes/:path*", "/earn/:path*"],
 };
