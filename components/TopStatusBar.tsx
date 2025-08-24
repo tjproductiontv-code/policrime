@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic"; // cache uit
 
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "../lib/prisma";
 
 type UserBar = {
   email: string;

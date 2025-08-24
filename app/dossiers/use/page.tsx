@@ -1,6 +1,6 @@
 // app/dossiers/use/page.tsx
 import { getUserFromCookie } from "../../lib/auth";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "../../../lib/prisma";
 import UseDossiersForm from "../../../components/UseDossiersForm";
 
 export default async function DossiersUsePage() {

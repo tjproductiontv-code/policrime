@@ -2,7 +2,7 @@
 "use client";
 import { useTransition, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { Privilege } from "@/lib/privileges";
+import type { Privilege } from "../lib/privileges";
 
 export default function PrivilegeCard({ item, owned }: { item: Privilege; owned: boolean }) {
   const router = useRouter();

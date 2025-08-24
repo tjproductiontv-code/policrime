@@ -1,7 +1,7 @@
 import { getUserFromCookie } from "../../lib/auth";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "../../lib/prisma";
 import BuyVotesForm from "../../components/BuyVotesForm";
-import { VOTE_PRICE } from "@/lib/game";
+import { VOTE_PRICE } from "../../lib/game";
 
 export default async function VotesPage() {
   const session = await getServerSession(authOptions);

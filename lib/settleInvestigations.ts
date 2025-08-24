@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { prisma } from "./prisma";
 
 /** Markeer alle verlopen onderzoeken als completed en geef onderzoekers vrij. */
 export async function settleInvestigationsForUser(userId: number) {

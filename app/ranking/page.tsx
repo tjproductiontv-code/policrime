@@ -1,6 +1,6 @@
 // app/ranking/page.tsx
-import { prisma } from "@/lib/prisma";
-import { LEVELS } from "@/lib/levels";
+import { prisma } from "../../lib/prisma";
+import { LEVELS } from "../../lib/levels";
 
 export default async function RankingPage() {
   // 1) Meeste stemmen

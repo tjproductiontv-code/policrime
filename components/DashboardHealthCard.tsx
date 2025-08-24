@@ -1,6 +1,6 @@
 // components/DashboardHealthCard.tsx
 import { getServerSession } from "next-auth";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "../lib/prisma";
 import HealthBar from "./HealthBar";
 
 export default async function DashboardHealthCard() {

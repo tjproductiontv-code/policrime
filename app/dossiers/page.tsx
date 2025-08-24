@@ -1,7 +1,7 @@
 import { getUserFromCookie } from "../../lib/auth";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "../../lib/prisma";
 import DossierBuyForm from "./ui/DossierBuyForm";
-import { DOSSIER_PRICE_EUR } from "@/lib/dossiers";
+import { DOSSIER_PRICE_EUR } from "../../lib/dossiers";
 
 export default async function DossiersPage() {
   const session = await getServerSession(authOptions);

@@ -1,7 +1,7 @@
 import { getUserFromCookie } from "../../lib/auth";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "../../lib/prisma";
 import Countdown from "../../components/Countdown";
-import { settlePassiveIncome } from "@/lib/passive";
+import { settlePassiveIncome } from "../../lib/passive";
 
 export default async function Dashboard() {
   const session = await getServerSession(authOptions);

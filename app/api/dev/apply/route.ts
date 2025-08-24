@@ -1,8 +1,8 @@
 // app/api/dev/apply/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { prisma } from "@/lib/prisma";
-import { applyPassiveIncome } from "@/lib/applyPassiveIncome";
+import { prisma } from "../../../../lib/prisma";
+import { applyPassiveIncome } from "../../../../lib/applyPassiveIncome";
 
 export const dynamic = "force-dynamic";
 

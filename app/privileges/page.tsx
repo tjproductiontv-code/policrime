@@ -1,10 +1,10 @@
 // app/privileges/page.tsx
 export const dynamic = "force-dynamic";
 import { getUserFromCookie } from "../../lib/auth";
-import { prisma } from "@/lib/prisma";
-import { PRIVILEGE_CATALOG } from "@/lib/privileges";
+import { prisma } from "../../lib/prisma";
+import { PRIVILEGE_CATALOG } from "../../lib/privileges";
 import PrivilegeCard from "../../components/PrivilegeCard";
-import { settlePassiveIncome } from "@/lib/passive";
+import { settlePassiveIncome } from "../../lib/passive";
 
 export default async function PrivilegesPage() {
   const session = await getServerSession(authOptions);

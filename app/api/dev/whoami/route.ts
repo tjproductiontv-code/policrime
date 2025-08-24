@@ -1,7 +1,7 @@
 // app/api/dev/whoami/route.ts
 import { NextResponse } from "next/server";
 import { getUserFromCookie } from "<relatief pad>/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "../../../../lib/prisma";
 
 export const dynamic = "force-dynamic";
 

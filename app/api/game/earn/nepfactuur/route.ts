@@ -1,17 +1,17 @@
 // app/api/game/earn/nepfactuur/route.ts
 import { NextResponse } from "next/server";
 import { getUserFromCookie } from "<relatief pad>/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "../../../../../lib/prisma";
 import {
   TEN_MIN,
   INVESTIGATION_SEC,
   onCooldown,
   secondsRemaining,
   investigationChance,
-} from "@/lib/game";
+} from "../../../../../lib/game";
 
-import { addProgress } from "@/lib/leveling";
-import { calcProgress } from "@/lib/progressActions";
+import { addProgress } from "../../../../../lib/leveling";
+import { calcProgress } from "../../../../../lib/progressActions";
 
 export async function POST() {
   const session = await getServerSession(authOptions);

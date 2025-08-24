@@ -1,8 +1,8 @@
 // app/kantoor/page.tsx
 import { getUserFromCookie } from "../../lib/auth";
-import { prisma } from "@/lib/prisma";
-import { INVESTIGATOR_PRICE } from "@/lib/investigations";
-import { settleInvestigationsForUser } from "@/lib/settleInvestigations";
+import { prisma } from "../../lib/prisma";
+import { INVESTIGATOR_PRICE } from "../../lib/investigations";
+import { settleInvestigationsForUser } from "../../lib/settleInvestigations";
 import InvestigatorBuyForm from "./ui/InvestigatorBuyForm";
 import InvestigationStartForm from "./ui/InvestigationStartForm";
 import Countdown from "../../components/Countdown";

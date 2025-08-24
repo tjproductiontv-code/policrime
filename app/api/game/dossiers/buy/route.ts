@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getUserFromCookie } from "<relatief pad>/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { DOSSIER_PRICE_EUR } from "@/lib/dossiers";
+import { prisma } from "../../../../../lib/prisma";
+import { DOSSIER_PRICE_EUR } from "../../../../../lib/dossiers";
 
 export async function POST(req: Request) {
   try {

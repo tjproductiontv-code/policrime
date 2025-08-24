@@ -1,5 +1,5 @@
 // lib/applyPassiveIncome.ts
-import { prisma } from "@/lib/prisma";
+import { prisma } from "./prisma";
 
 const HOUR = 3_600_000;
 const floorToHour = (d: Date) => new Date(Math.floor(d.getTime() / HOUR) * HOUR);

@@ -1,5 +1,5 @@
 // lib/passive.ts
-import { prisma } from "@/lib/prisma";
+import { prisma } from "./prisma";
 
 /** Rondt een datum naar beneden af op het vorige hele uur. */
 function floorToHour(d: Date): Date {

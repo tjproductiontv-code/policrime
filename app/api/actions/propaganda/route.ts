@@ -1,8 +1,8 @@
 // app/api/actions/propaganda/route.ts
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
-import { getUserFromCookie } from "@/lib/auth";
-import { ensureDailyAp } from "@/lib/ap";
+import { prisma } from "../../../../lib/db";
+import { getUserFromCookie } from "../../../../lib/auth";
+import { ensureDailyAp } from "../../../../lib/ap";
 
 /**
  * Kosten en opbrengst per intensiteit

@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic"; // geen cache
 
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { applyPassiveIncome } from "@/lib/applyPassiveIncome";
+import { applyPassiveIncome } from "../lib/applyPassiveIncome";
 
 export default async function PassiveIncomeGate() {
   const session = await getServerSession(authOptions);

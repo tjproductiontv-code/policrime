@@ -1,8 +1,8 @@
 // app/api/game/dossiers/use/route.ts
 import { NextResponse } from "next/server";
 import { getUserFromCookie } from "<relatief pad>/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { DAMAGE_PER_DOSSIER_BP } from "@/lib/dossiers";
+import { prisma } from "../../../../../lib/prisma";
+import { DAMAGE_PER_DOSSIER_BP } from "../../../../../lib/dossiers";
 
 export async function POST(req: Request) {
   try {
