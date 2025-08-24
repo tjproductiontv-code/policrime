@@ -1,67 +1,46 @@
 // app/kantoor/page.tsx
-import { redirect } from "next/navigation";
 import { getUserFromCookie } from "../../lib/auth";
 import { prisma } from "../../lib/prisma";
-import { INVESTIGATOR_PRICE } from "../../lib/investigations";
 import { settleInvestigationsForUser } from "../../lib/settleInvestigations";
-import InvestigatorBuyForm from "./ui/InvestigatorBuyForm";
-import InvestigationStartForm from "./ui/InvestigationStartForm";
-import Countdown from "../../components/Countdown";
-import Pagination from "./ui/Pagination";
+import { INVESTIGATOR_PRICE } from "../../lib/investigations";
+import type { Prisma } from "@prisma/client";
 
-const PAGE_SIZE = 10;
+export const dynamic = "force-dynamic";
+
+const PAGE_SIZE = 20;
 
 export default async function KantoorPage({
   searchParams,
 }: {
-  searchParams: { page?: string };
+  searchParams?: Record<string, string | string[] | undefined>;
 }) {
-  // Nieuwe auth-check via cookie
   const me = getUserFromCookie();
   if (!me?.id) {
-    redirect("/sign-in");
+    return <main className="p-6">Niet ingelogd.</main>;
   }
 
-  // Basisgegevens gebruiker (op id)
-  const user = await prisma.user.findUnique({
-    where: { id: me.id },
-    select: { id: true, money: true, investigators: true, investigatorsBusy: true },
-  });
-  if (!user) {
-    return <main className="p-6">User niet gevonden.</main>;
-  }
+  // Optioneel: lopende onderzoeken afwikkelen voor we tonen
+  await settleInvestigationsForUser(me.id);
 
-  // Rond aflopende onderzoeken af (en geef busy vrij)
-  await settleInvestigationsForUser(user.id);
+  // Paginering
+  const page = Number(searchParams?.page ?? 1);
+  const safePage = Number.isFinite(page) && page > 0 ? page : 1;
+  const skip = (safePage - 1) * PAGE_SIZE;
 
-  // Refresh stats
-  const fresh = await prisma.user.findUnique({
-    where: { id: user.id },
-    select: { money: true, investigators: true, investigatorsBusy: true },
-  });
+  // Laat lopende + recent afgeronde onderzoeken zien (bijv. laatste 14 dagen)
+  const recentWindowMs = 14 * 24 * 60 * 60 * 1000;
+  const recentThreshold = new Date(Date.now() - recentWindowMs);
 
-  const total = fresh?.investigators ?? 0;
-  const busy = fresh?.investigatorsBusy ?? 0;
-  const available = Math.max(0, total - busy);
+  // ✅ Belangrijk: typ de where en gebruik een NIET-readonly array voor OR
+  const where: Prisma.InvestigationWhereInput = {
+    attackerId: me.id,
+    OR: [
+      { completedAt: null },
+      { completedAt: { gte: recentThreshold } },
+    ],
+  };
 
-  // Alleen tonen: lopend of afgerond < 24h
-  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
-
-  // ⬇️ Cleanup: verwijder afgeronde onderzoeken ouder dan 24h
-  await prisma.investigation.deleteMany({
-    where: { completedAt: { lt: cutoff } },
-  });
-
-  const where = {
-    attackerId: user.id,
-    OR: [{ completedAt: null }, { completedAt: { gte: cutoff } }],
-  } as const;
-
-  // Paginatie
-  const page = Math.max(1, Math.floor(Number(searchParams?.page ?? "1")) || 1);
-  const skip = (page - 1) * PAGE_SIZE;
-
-  const [rows, totalCount] = await Promise.all([
+  const [rows, totalCount, meUser] = await Promise.all([
     prisma.investigation.findMany({
       where,
       orderBy: { startedAt: "desc" },
@@ -69,80 +48,105 @@ export default async function KantoorPage({
       take: PAGE_SIZE,
       select: {
         id: true,
+        targetId: true,
         assigned: true,
         startedAt: true,
         etaAt: true,
         completedAt: true,
         consumedAt: true,
-        target: { select: { name: true } },
+        target: { select: { id: true, name: true, email: true } },
       },
     }),
     prisma.investigation.count({ where }),
+    prisma.user.findUnique({
+      where: { id: me.id },
+      select: { investigators: true, investigatorsBusy: true, money: true },
+    }),
   ]);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
   return (
     <main className="p-6 space-y-6">
-      <h1 className="text-2xl font-bold">Kantoor</h1>
+      <header>
+        <h1 className="text-2xl font-bold">Kantoor</h1>
+        <p className="text-sm text-gray-600">
+          Onderzoekers: <b>{meUser?.investigators ?? 0}</b> &middot; Bezet:{" "}
+          <b>{meUser?.investigatorsBusy ?? 0}</b> &middot; Prijs per onderzoeker: €
+          {INVESTIGATOR_PRICE.toLocaleString("nl-NL")} &middot; Saldo: €
+          {(meUser?.money ?? 0).toLocaleString("nl-NL")}
+        </p>
+      </header>
 
-      <div className="rounded border p-4">
-        <div className="font-semibold mb-1">Onderzoekers</div>
-        <p className="text-sm text-gray-700">
-          In dienst: <b>{total}</b> • Bezet: <b>{busy}</b> • Vrij: <b>{available}</b> • Saldo: €
-          {(fresh?.money ?? 0).toLocaleString("nl-NL")}
-        </p>
-        <p className="text-sm text-gray-700">
-          Prijs per onderzoeker: €{INVESTIGATOR_PRICE.toLocaleString("nl-NL")}
-        </p>
-        <div className="mt-3">
-          <InvestigatorBuyForm />
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">Onderzoeken</h2>
+        <div className="overflow-x-auto">
+          <table className="min-w-[700px] w-full border rounded">
+            <thead className="bg-gray-50 text-left text-sm">
+              <tr>
+                <th className="p-2 border-b">ID</th>
+                <th className="p-2 border-b">Doelwit</th>
+                <th className="p-2 border-b">Ingezet</th>
+                <th className="p-2 border-b">Gestart</th>
+                <th className="p-2 border-b">ETA</th>
+                <th className="p-2 border-b">Status</th>
+              </tr>
+            </thead>
+            <tbody className="text-sm">
+              {rows.length === 0 ? (
+                <tr>
+                  <td className="p-3 text-center text-gray-500" colSpan={6}>
+                    Geen onderzoeken gevonden.
+                  </td>
+                </tr>
+              ) : (
+                rows.map((r) => {
+                  const status = r.completedAt
+                    ? "Afgerond"
+                    : r.etaAt && r.etaAt.getTime() > Date.now()
+                    ? "Lopend"
+                    : "In afwikkeling";
+                  return (
+                    <tr key={r.id} className="border-b last:border-b-0">
+                      <td className="p-2">{r.id}</td>
+                      <td className="p-2">
+                        {r.target?.name ?? r.target?.email ?? r.targetId}
+                      </td>
+                      <td className="p-2">{r.assigned}</td>
+                      <td className="p-2">{new Date(r.startedAt).toLocaleString("nl-NL")}</td>
+                      <td className="p-2">{new Date(r.etaAt).toLocaleString("nl-NL")}</td>
+                      <td className="p-2">{status}</td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
         </div>
-      </div>
 
-      <div className="rounded border p-4">
-        <div className="font-semibold mb-2">Start een onderzoek</div>
-        <InvestigationStartForm maxAssignable={available} />
-        <p className="text-xs text-gray-500 mt-2">
-          Minimale duur is altijd 30 minuten. Hogere rang = zwaarder (20% per level).
-        </p>
-      </div>
-
-      <div className="rounded border p-4">
-        <div className="font-semibold mb-2">Jouw onderzoeken</div>
-
-        <ul className="space-y-2">
-          {rows.map((inv) => {
-            const status = inv.completedAt ? (inv.consumedAt ? "verbruikt" : "gereed") : "bezig";
-            return (
-              <li key={inv.id} className="border rounded p-2">
-                <div className="text-sm">
-                  Doel: <b>{inv.target.name}</b> • Ingezet: {inv.assigned} • Status: <b>{status}</b>
-                </div>
-                {!inv.completedAt ? (
-                  <div className="text-xs text-gray-600">
-                    Klaar over <Countdown until={inv.etaAt.toISOString()} />
-                  </div>
-                ) : (
-                  <div className="text-xs text-gray-600">
-                    Afgerond op {new Date(inv.completedAt).toLocaleString("nl-NL")}
-                  </div>
-                )}
-              </li>
-            );
-          })}
-          {rows.length === 0 && (
-            <li className="text-sm text-gray-600">Geen onderzoeken om te tonen.</li>
-          )}
-        </ul>
-
-        <div className="mt-4">
-          <Pagination page={page} totalPages={totalPages} />
-          <p className="text-xs text-gray-500 mt-2">
-            Afgeronde onderzoeken verdwijnen automatisch uit dit overzicht na 24 uur.
-          </p>
+        {/* eenvoudige paginering */}
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-600">
+            Pagina {safePage} / {totalPages}
+          </span>
+          <nav className="ml-auto flex gap-2">
+            <a
+              className="px-3 py-1 border rounded text-sm pointer-events-auto"
+              aria-disabled={safePage <= 1}
+              href={safePage > 1 ? `/kantoor?page=${safePage - 1}` : "#"}
+            >
+              ← Vorige
+            </a>
+            <a
+              className="px-3 py-1 border rounded text-sm pointer-events-auto"
+              aria-disabled={safePage >= totalPages}
+              href={safePage < totalPages ? `/kantoor?page=${safePage + 1}` : "#"}
+            >
+              Volgende →
+            </a>
+          </nav>
         </div>
-      </div>
+      </section>
     </main>
   );
 }
