@@ -10,8 +10,11 @@ export default function UseDossiersForm({ initialDossiers = 0 }: { initialDossie
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<UserLite | null>(null);
-  const [count, setCount] = useState<string>("1");
+
+  // ⬇️ voorraad uit server prop
   const [available, setAvailable] = useState<number>(initialDossiers);
+
+  const [count, setCount] = useState<string>("1");
   const [msg, setMsg] = useState<{ kind: "success" | "error"; text: string } | null>(null);
 
   const router = useRouter();
@@ -53,11 +56,14 @@ export default function UseDossiersForm({ initialDossiers = 0 }: { initialDossie
     setOpen(false);
   };
 
-  // clamp 1..min(999, available)
+  // ✅ clamp: 0..available (GEEN 999 meer)
   const qty = useMemo(() => {
     const n = Math.floor(Number(count));
     if (!Number.isFinite(n)) return 0;
-    return Math.max(1, Math.min(available > 0 ? available : 999, Math.min(999, n)));
+    const max = Math.max(0, available);
+    const wanted = Math.max(1, n);
+    // als available = 0 → qty = 0 (knop wordt disabled)
+    return Math.min(wanted, max);
   }, [count, available]);
 
   const onSubmit = async (e?: React.FormEvent) => {
@@ -69,7 +75,7 @@ export default function UseDossiersForm({ initialDossiers = 0 }: { initialDossie
       return;
     }
     if (qty < 1) {
-      setMsg({ kind: "error", text: "Voer een geldig aantal in (minimaal 1)." });
+      setMsg({ kind: "error", text: "Je hebt geen dossiers beschikbaar." });
       return;
     }
     if (qty > available) {
@@ -86,22 +92,29 @@ export default function UseDossiersForm({ initialDossiers = 0 }: { initialDossie
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        const left = typeof data?.dossiersLeft === "number" ? data.dossiersLeft : Math.max(0, available - qty);
-        setAvailable(left);        // ⬅️ direct in de UI verwerken
-        setCount("1");             // reset input
+        const left =
+          typeof data?.dossiersLeft === "number" ? data.dossiersLeft : Math.max(0, available - qty);
+        setAvailable(left); // update UI-voorraad
+        setCount("1");
+
+        const rep = typeof data?.targetHPBP === "number" ? `${data.targetHPBP}%` : "onbekend";
+        const elim = data?.eliminated ? " • 🎯 Geëlimineerd!" : "";
+
         setMsg({
           kind: "success",
-          text: `Gebruikt: ${qty} dossier(s) op ${selected.name ?? selected.email ?? "#" + selected.id}. • Over: ${left}`,
+          text: `Gebruikt: ${qty} dossier(s) op ${
+            selected.name ?? selected.email ?? "#" + selected.id
+          }. • Over: ${left} • Reputatie doelwit: ${rep}${elim}`,
         });
-        router.refresh();          // SSR-sectie (overzichten) bijwerken
+        router.refresh();
       } else {
         const reason =
           data?.error === "INSUFFICIENT_DOSSIERS"
             ? `Te weinig dossiers. Nodig: ${data?.needed}, je hebt: ${data?.have}.`
             : data?.error === "NO_ELIGIBLE_INVESTIGATION"
-            ? `Niet genoeg afgeronde onderzoeken op deze speler. Nodig: ${qty}, beschikbaar: ${data?.haveEligible ?? 0}.`
-            : data?.error === "CONFLICT_RETRY"
-            ? "Bezig met verwerken. Probeer zo opnieuw."
+            ? `Je hebt één afgerond onderzoek nodig op deze speler (nog niet eerder gebruikt).`
+            : data?.error === "CANNOT_TARGET_SELF"
+            ? "Je kunt jezelf niet targeten."
             : data?.error ?? "Gebruik mislukt.";
         setMsg({ kind: "error", text: reason });
       }
@@ -192,13 +205,14 @@ export default function UseDossiersForm({ initialDossiers = 0 }: { initialDossie
             type="number"
             inputMode="numeric"
             min={1}
-            max={999}
+            // ⬇️ maximale invoer = je echte voorraad (geen 999)
+            max={Math.max(1, available)}
             value={count}
             onChange={(e) => setCount(e.target.value)}
             className="border rounded px-3 py-2 w-32"
           />
           <p className="text-xs text-gray-600 mt-1">
-            Beschikbaar: <b>{available}</b> • max: <b>{Math.max(1, Math.min(available || 1, 999))}</b>
+            Beschikbaar: <b>{available}</b> • max: <b>{available}</b>
           </p>
         </div>
 
