@@ -1,15 +1,20 @@
 // app/earn/page.tsx
 import { getServerSession } from "next-auth";
 import { authOptions } from "../api/auth/[...nextauth]/route";
-import { prisma } from "@/lib/prisma";
-import { TEN_MIN, FOURTEEN_MIN, investigationChance } from "@/lib/game"; // ← voeg investigationChance toe
-import Countdown from "@/components/Countdown";
-import { EarnActionButton } from "@/components/EarnActionButton";
-import InvestigationBanner from "@/components/InvestigationBanner";
+
+import { prisma } from "../../lib/prisma";
+import { TEN_MIN, FOURTEEN_MIN, investigationChance } from "../../lib/game";
+
+import Countdown from "../../components/Countdown";
+import { EarnActionButton } from "../../components/EarnActionButton";
+import InvestigationBanner from "../../components/InvestigationBanner";
 
 export default async function EarnPage() {
+  // Auth check
   const session = await getServerSession(authOptions);
-  if (!session?.user?.email) {
+  const email = session?.user?.email ?? null;
+
+  if (!email) {
     return (
       <main className="p-6">
         <h1 className="text-xl font-semibold mb-2">Niet ingelogd</h1>
@@ -20,28 +25,28 @@ export default async function EarnPage() {
     );
   }
 
+  // Minimale usergegevens ophalen
   const user = await prisma.user.findUnique({
-    where: { email: session.user.email },
+    where: { email },
     select: {
       money: true,
       lastNepfactuurAt: true,
       lastVriendjeAt: true,
       investigationUntil: true,
-      level: true, // ← level meenemen
+      level: true,
     },
   });
 
   if (!user) {
     return (
       <main className="p-6">
-        <p>User niet gevonden.</p>
+        <p>Gebruiker niet gevonden.</p>
       </main>
     );
   }
 
+  // Helpers
   const now = Date.now();
-
-  // Helper: geeft ISO-eindtijd terug als de cooldown nog loopt, anders null
   const asReadyISO = (last: Date | null | undefined, cooldownSeconds: number) => {
     if (!last) return null;
     const ready = last.getTime() + cooldownSeconds * 1000;
@@ -51,19 +56,17 @@ export default async function EarnPage() {
   const nepfactuurReadyAt = asReadyISO(user.lastNepfactuurAt, TEN_MIN);
   const vriendjeReadyAt = asReadyISO(user.lastVriendjeAt, FOURTEEN_MIN);
 
-  // Onderzoek: alleen actief als de eindtijd in de toekomst ligt
   const investigationUntilISO =
     user.investigationUntil && user.investigationUntil.getTime() > now
       ? user.investigationUntil.toISOString()
       : null;
 
   const locked = Boolean(investigationUntilISO);
-  const moneyFormatted = `€${(user.money ?? 0).toLocaleString("nl-NL")}`;
-
-  // ⬇️ Dynamische kansen op basis van level (zelfde bron als in je API)
   const level = user.level ?? 1;
+
+  const moneyFormatted = `€${(user.money ?? 0).toLocaleString("nl-NL")}`;
   const nepfactuurPct = Math.round(investigationChance("nepfactuur", level) * 100);
-  const vriendjePct   = Math.round(investigationChance("vriendje",   level) * 100);
+  const vriendjePct = Math.round(investigationChance("vriendje", level) * 100);
 
   return (
     <main className="p-6 space-y-6">
@@ -72,7 +75,7 @@ export default async function EarnPage() {
         <p>Huidig saldo: {moneyFormatted}</p>
       </div>
 
-      {/* Onderzoek-banner (toont ook Koop-vrij met €10/sec) */}
+      {/* Toon banner als er een lopend onderzoek is */}
       {locked && <InvestigationBanner untilISO={investigationUntilISO} />}
 
       <ul className="space-y-3">
