@@ -11,11 +11,9 @@ export async function POST() {
     return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
   }
 
-  // Roep jouw helper aan; resultaat kan verschillen per implementatie
-  const result = await applyPassiveIncome(me.id as number).catch((e: any) => ({
+  const result = await applyPassiveIncome(me.id).catch((e: any) => ({
     error: String(e?.message ?? e),
   }));
 
-  // Je kunt hier specifieker returnen als je helper een vaste shape geeft
   return NextResponse.json({ ok: !("error" in (result as any)), result });
 }
