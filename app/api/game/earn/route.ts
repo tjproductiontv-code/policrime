@@ -1,46 +1,32 @@
 // app/api/game/earn/route.ts
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "../../auth/[...nextauth]/route"; // laat dit zo als het pad klopt
-import { prisma } from "@/lib/prisma";
+import { getUserFromCookie } from "../../../../lib/auth";
+import { prisma } from "../../../../lib/prisma";
 
-export async function POST(req: Request) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
-    }
+export const dynamic = "force-dynamic";
 
-    // amount mag number of string zijn; minimaal 1 euro; we gebruiken hele euro's
-    const body = await req.json().catch(() => ({} as any));
-    const parsed = Math.floor(Number(body?.amount));
-    const amount = Number.isFinite(parsed) ? parsed : NaN;
-
-    if (!Number.isFinite(amount) || amount <= 0) {
-      return NextResponse.json({ error: "INVALID_AMOUNT" }, { status: 400 });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      select: { id: true, money: true },
-    });
-    if (!user) {
-      return NextResponse.json({ error: "USER_NOT_FOUND" }, { status: 404 });
-    }
-
-    const updated = await prisma.user.update({
-      where: { id: user.id },
-      data: { money: { increment: amount } },
-      select: { money: true },
-    });
-
-    return NextResponse.json({
-      ok: true,
-      added: amount,
-      money: updated.money,
-    });
-  } catch (err) {
-    console.error("earn route error:", err);
-    return NextResponse.json({ error: "UNKNOWN_ERROR" }, { status: 500 });
+// Optioneel: een GET die gewoon laat zien dat je ingelogd bent
+export async function GET() {
+  const user = getUserFromCookie();
+  if (!user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  // Voorbeeld: haal iets simpels op (mag je weghalen/aanpassen)
+  const me = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { id: true, email: true, money: true, level: true }
+  });
+
+  return NextResponse.json({ ok: true, me });
+}
+
+// Voorbeeld-POST (placeholder): pas aan voor jouw eigen earn-logica
+export async function POST() {
+  const user = getUserFromCookie();
+  if (!user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  return NextResponse.json({ ok: true });
 }
