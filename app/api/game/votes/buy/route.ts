@@ -6,7 +6,7 @@ import { prisma } from "../../../../../lib/prisma";
 export const dynamic = "force-dynamic";
 
 // Pas aan naar jouw economie
-const VOTE_PRICE = 10; // €10 per stem
+const VOTE_PRICE = 100; // €10 per stem
 
 export async function POST(req: Request) {
   const me = getUserFromCookie();

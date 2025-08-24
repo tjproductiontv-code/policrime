@@ -1,15 +1,13 @@
-'use client';
-export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+"use client";
+
+export default function GlobalError({ error }: { error: Error & { digest?: string } }) {
   return (
     <html>
-      <body style={{fontFamily:'system-ui', padding:24}}>
-        <h1>Er ging iets mis aan de client-kant</h1>
-        <p style={{color:'#555'}}>Details (voor debug):</p>
-        <pre style={{whiteSpace:'pre-wrap', background:'#f6f6f6', padding:12, borderRadius:8, border:'1px solid #eee'}}>
-{String(error?.message || error)}
-        </pre>
-        <button onClick={() => reset()} style={{marginTop:16, padding:'8px 12px'}}>Probeer opnieuw</button>
-        <p style={{marginTop:24}}><a href="/ok">Health check (/ok)</a></p>
+      <body style={{ padding: 16, fontFamily: "system-ui" }}>
+        <h1>Er ging iets mis</h1>
+        <pre style={{ whiteSpace: "pre-wrap" }}>{String(error?.message || error)}</pre>
+        {error?.digest && <p>Digest: {error.digest}</p>}
+        <a href="/" style={{ display: "inline-block", marginTop: 12 }}>Terug naar home</a>
       </body>
     </html>
   );
