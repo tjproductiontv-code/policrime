@@ -119,7 +119,7 @@ export function EarnActionButton({
         </p>
       ) : remainingSec > 0 ? (
         <p className="text-sm text-gray-600 mt-2">
-          Nog <Countdown start={remainingSec} /> cooldown
+          Nog <Countdown until={new Date(Date.now() + remainingSec * 1000)} /> cooldown
         </p>
       ) : null}
     </div>
