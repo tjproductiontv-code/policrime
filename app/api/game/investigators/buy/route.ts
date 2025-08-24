@@ -1,43 +1,59 @@
-// app/api/game/level/add-progress/route.ts
+// app/api/game/investigators/buy/route.ts
 import { NextResponse } from "next/server";
-import { getUserFromCookie } from "../../../../../lib/auth";
-import { prisma } from "../../../../../lib/prisma";
-import { addProgress } from "../../../../../lib/leveling";
-import { LEVELS } from "../../../../../lib/levels";
+import { prisma } from "@/lib/prisma";
+import { getUserFromCookie } from "@/lib/auth";
+import { INVESTIGATOR_PRICE } from "@/lib/investigations";
+
+export const dynamic = "force-dynamic";
+
+// (optioneel) blokkeer GET
+export function GET() {
+  return NextResponse.json(
+    { error: "Method Not Allowed" },
+    { status: 405, headers: { Allow: "POST" } }
+  );
+}
 
 export async function POST(req: Request) {
-  // Auth via jouw JWT-cookie
-  const me = getUserFromCookie(); // { id: number } | null
-  if (!me?.id) {
-    return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
+  try {
+    const me = getUserFromCookie();
+    if (!me?.id) {
+      return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
+    }
+
+    // JSON of FormData accepteren
+    const body =
+      (await req.json().catch(async () => {
+        const f = await req.formData().catch(() => null);
+        return f ? Object.fromEntries(f) : {};
+      })) || {};
+
+    const qtyRaw = Number((body as any).count ?? (body as any).qty ?? 1);
+    const qty = Number.isFinite(qtyRaw) && qtyRaw > 0 ? Math.floor(qtyRaw) : 1;
+
+    const user = await prisma.user.findUnique({
+      where: { id: me.id },
+      select: { id: true, money: true, investigators: true },
+    });
+    if (!user) return NextResponse.json({ error: "USER_NOT_FOUND" }, { status: 404 });
+
+    const cost = qty * INVESTIGATOR_PRICE;
+    if ((user.money ?? 0) < cost) {
+      return NextResponse.json({ error: "INSUFFICIENT_FUNDS", need: cost }, { status: 400 });
+    }
+
+    const updated = await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        money: { decrement: cost },
+        investigators: { increment: qty },
+      },
+      select: { money: true, investigators: true },
+    });
+
+    return NextResponse.json({ ok: true, qty, cost, ...updated });
+  } catch (err) {
+    console.error("investigators/buy error:", err);
+    return NextResponse.json({ error: "SERVER_ERROR" }, { status: 500 });
   }
-
-  // amount mag number of string zijn; fallback = 5
-  const body = await req.json().catch(() => ({} as any));
-  const parsed = Number(body?.amount);
-  const amount = Number.isFinite(parsed) && parsed > 0 ? parsed : 5;
-
-  // Bestaat de user?
-  const user = await prisma.user.findUnique({
-    where: { id: me.id },
-    select: { id: true },
-  });
-  if (!user) {
-    return NextResponse.json({ error: "USER_NOT_FOUND" }, { status: 404 });
-  }
-
-  // ✅ werkt met Float + carry-over tot level-up
-  const updated = await addProgress(user.id, amount);
-
-  // Rangtitel erbij is handig voor UI
-  const levelInfo = LEVELS[updated.level] ?? { title: "Onbekend", description: "" };
-
-  return NextResponse.json({
-    ok: true,
-    amountAdded: Number(amount.toFixed(2)),
-    level: updated.level,
-    levelProgress: Number(updated.levelProgress.toFixed(2)),
-    rankTitle: levelInfo.title,
-    rankDescription: levelInfo.description,
-  });
 }

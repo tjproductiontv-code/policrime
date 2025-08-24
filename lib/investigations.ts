@@ -1,37 +1,64 @@
 // lib/investigations.ts
-export const INVESTIGATOR_PRICE = 2500; // € per onderzoeker (pas aan)
-export const BASE_MIN_HOURS = 3;       // 3–4 uur bij 1 onderzoeker
-export const BASE_MAX_HOURS = 4;
-export const PER_INVESTIGATOR_FACTOR = 0.95; // -5% per extra onderzoeker
-export const MIN_DURATION_MIN = 30;    // minimaal 30 minuten
+export const INVESTIGATOR_PRICE = 2500;
 
-/** random basisduur tussen 3–4 uur (in ms) */
-function baseRandomMs() {
-  const hrs = BASE_MIN_HOURS + Math.random() * (BASE_MAX_HOURS - BASE_MIN_HOURS);
-  return hrs * 60 * 60 * 1000;
+// Basisduur: 2–3 uur
+const BASE_MIN_HOURS = 2;
+const BASE_MAX_HOURS = 3;
+
+// Elk extra persoon boven de 1 reduceert duur met 3% (multiplicatief)
+const REDUCTION_PER_EXTRA = 0.03;
+
+// ✅ Ondergrens: nooit onder 30 minuten
+const MIN_DURATION_MIN = 30;
+
+export function minInvestigatorsForRank(targetLevel: number): number {
+  return Math.max(1, 1 + Math.floor(Math.max(0, targetLevel - 1) / 4));
 }
 
-/** Hoeveel zwaarder is dit doelwit? 1.0 op level 1, +20% per extra level. */
-export function levelPenaltyFactor(targetLevel: number): number {
-  const L = Math.max(1, Math.floor(targetLevel || 1));
-  return 1 + 0.20 * (L - 1); // ⬅️ was 0.05, nu 0.20
+export function durationMultiplierForRank(targetLevel: number): number {
+  return 1 + Math.max(0, targetLevel - 1) * 0.05;
 }
 
-/**
- * Bereken duur in ms op basis van ingezette onderzoekers én level van het doelwit.
- * - assigned: aantal dat speler inzet
- * - targetLevel: level van doelwit
- * - effectieve onderzoekers = floor(assigned / penaltyFactor), min 1
- */
-export function calcInvestigationDurationMs(assigned: number, targetLevel: number): number {
-  const nAssigned = Math.max(1, Math.floor(assigned));
-  const penalty = levelPenaltyFactor(targetLevel);
-  const effective = Math.max(1, Math.floor(nAssigned / penalty));
+/** Echte ETA met random basis (2–3u) – gebruikt bij aanmaken van onderzoek */
+export function computeInvestigationETA(
+  assigned: number,
+  targetLevel: number,
+  now = new Date()
+): Date {
+  const baseHours =
+    BASE_MIN_HOURS + Math.random() * (BASE_MAX_HOURS - BASE_MIN_HOURS);
+  const extra = Math.max(0, assigned - 1);
+  const reductionFactor = Math.pow(1 - REDUCTION_PER_EXTRA, extra);
+  const rankMult = durationMultiplierForRank(targetLevel);
+  const hours = baseHours * reductionFactor * rankMult;
 
-  const base = baseRandomMs();
-  const speedFactor = Math.pow(PER_INVESTIGATOR_FACTOR, Math.max(0, effective - 1));
-  const ms = base * speedFactor;
+  const ms = hours * 60 * 60 * 1000;
+  const clampedMs = Math.max(MIN_DURATION_MIN * 60 * 1000, Math.round(ms));
 
-  const minMs = MIN_DURATION_MIN * 60 * 1000;
-  return Math.max(ms, minMs);
+  return new Date(now.getTime() + clampedMs);
+}
+
+/** Schatting zonder random: neem het gemiddelde (2.5u) voor UI-indicatie */
+export function estimateInvestigationMs(
+  assigned: number,
+  targetLevel: number
+): number {
+  const baseMeanHours = (BASE_MIN_HOURS + BASE_MAX_HOURS) / 2; // 2.5u
+  const extra = Math.max(0, assigned - 1);
+  const reductionFactor = Math.pow(1 - REDUCTION_PER_EXTRA, extra);
+  const rankMult = durationMultiplierForRank(targetLevel);
+  const hours = baseMeanHours * reductionFactor * rankMult;
+
+  const ms = hours * 60 * 60 * 1000;
+  return Math.max(MIN_DURATION_MIN * 60 * 1000, Math.round(ms));
+}
+
+/** 2u 15m / 45m / 1u formatter */
+export function formatDuration(ms: number): string {
+  const totalMin = Math.max(1, Math.round(ms / 60000)); // min 1 minuut
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  if (h > 0 && m > 0) return `${h}u ${m}m`;
+  if (h > 0) return `${h}u`;
+  return `${m}m`;
 }

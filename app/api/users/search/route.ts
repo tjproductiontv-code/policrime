@@ -1,34 +1,48 @@
 // app/api/users/search/route.ts
-export const dynamic = "force-dynamic";
-
 import { NextResponse } from "next/server";
-import { prisma } from "../../../../lib/prisma";
+import { prisma } from "../../../../lib/prisma"; // let op: relative path zonder @-alias
+import { getUserFromCookie } from "../../../../lib/auth";
+
+const LIMIT = 10;
+
+function parseQueryFromUrl(url: string) {
+  const u = new URL(url);
+  const q = u.searchParams.get("q") || u.searchParams.get("query") || "";
+  return q;
+}
 
 export async function GET(req: Request) {
-  try {
-    const { searchParams } = new URL(req.url);
-    let q = (searchParams.get("q") ?? "").trim();
-    if (q.startsWith("@")) q = q.slice(1).trim();
+  // optioneel: alleen voor ingelogden
+  const me = getUserFromCookie();
+  if (!me?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    if (q.length < 1) return NextResponse.json([]);
+  const q = parseQueryFromUrl(req.url).trim();
+  if (q.length < 2) return NextResponse.json({ results: [] });
 
-    const users = await prisma.user.findMany({
-      where: {
-        // Alleen op naam zoeken (email weggelaten)
-        name: { contains: q }, // eventueel: { contains: q, mode: "insensitive" }
-      },
-      // level toevoegen, email verwijderen
-      select: { id: true, name: true, level: true },
-      orderBy: { name: "asc" },
-      take: 20,
-    });
+  const results = await prisma.user.findMany({
+    where: { name: { contains: q, mode: "insensitive" } },
+    orderBy: { name: "asc" },
+    take: LIMIT,
+    select: { id: true, name: true, email: true, level: true },
+  });
 
-    return NextResponse.json(users, { status: 200 });
-  } catch (err: any) {
-    console.error("users/search error:", err);
-    return NextResponse.json(
-      { error: "SERVER_ERROR", detail: String(err?.message ?? err) },
-      { status: 500 },
-    );
-  }
+  return NextResponse.json({ results });
+}
+
+export async function POST(req: Request) {
+  const me = getUserFromCookie();
+  if (!me?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const body = await req.json().catch(() => ({}));
+  const q = String(body?.q ?? body?.query ?? body?.name ?? "").trim();
+  if (q.length < 2) return NextResponse.json({ results: [] });
+
+  const results = await prisma.user.findMany({
+    where: { name: { contains: q, mode: "insensitive" } },
+    orderBy: { name: "asc" },
+    take: LIMIT,
+    select: { id: true, name: true, email: true, level: true },
+  });
+
+  return NextResponse.json({ results });
 }
