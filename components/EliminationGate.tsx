@@ -4,18 +4,14 @@ import RestartButton from "./RestartButton";
 import { getUserFromCookie } from "../lib/auth";
 import { prisma } from "../lib/prisma";
 
-// Server Component: checkt status en toont óf children óf de reset UI
 export default async function EliminationGate({
   children,
 }: {
-  children: React.ReactNode;
+  children?: React.ReactNode; // ✅ optioneel maken
 }) {
-  // Auth
   const me = await getUserFromCookie();
-  // Geen user? Laat de rest van de app/layout het verder afhandelen
-  if (!me?.id) return <>{children}</>;
+  if (!me?.id) return <>{children}</>; // niet ingelogd? laat layout verder afhandelen
 
-  // Lees vers uit DB
   const u = await prisma.user.findUnique({
     where: { id: me.id },
     select: { eliminatedAt: true, hpBP: true },
@@ -23,10 +19,12 @@ export default async function EliminationGate({
 
   const isEliminated = !!u?.eliminatedAt || (u?.hpBP ?? 0) <= 0;
 
-  // Niet eliminated -> render gewoon de app
-  if (!isEliminated) return <>{children}</>;
+  if (!isEliminated) {
+    // Actief: render de app content (of niets als er geen children zijn)
+    return <>{children}</>;
+  }
 
-  // Wél eliminated -> toon de gate met reset-knop
+  // Uitgeschakeld: toon de reset UI
   return (
     <main className="p-6 space-y-4">
       <h1 className="text-2xl font-semibold">Je bent uitgeschakeld</h1>
