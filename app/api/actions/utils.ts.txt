@@ -1,0 +1,7 @@
+import { NextResponse } from "next/server";
+
+/** Redirect na een POST naar een GET-pagina */
+export function redirectOutOfFunds(req: Request) {
+  // 303 = "See Other": na POST door naar een GET URL
+  return NextResponse.redirect(new URL("/out-of-funds", req.url), 303);
+}

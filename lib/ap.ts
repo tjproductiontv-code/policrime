@@ -1,0 +1,1 @@
+import { prisma } from './db'; function isBeforeToday(d:Date){const t=new Date(); t.setHours(0,0,0,0); return new Date(d)<t} export async function ensureDailyAp(id:number,def=50){const u=await prisma.user.findUnique({where:{id}}); if(!u) return; if(isBeforeToday(u.lastActionReset)){await prisma.user.update({where:{id:u.id},data:{actionPoints:def,lastActionReset:new Date()}})}}

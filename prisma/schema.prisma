@@ -1,0 +1,138 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                   Int          @id @default(autoincrement())
+  email                String       @unique
+  name                 String
+  passwordHash         String
+
+  /// Actiepunten (money) gemapt naar kolom "actionPoints"
+  money                Int          @default(50) @map("actionPoints")
+
+  lastActionReset      DateTime     @default(now())
+  influence            Int          @default(0)
+
+  // Game fields
+  lastNepfactuurAt     DateTime?
+  lastVriendjeAt       DateTime?
+
+  /// (Legacy/optioneel) Einde van een lopend onderzoek via oud systeem
+  investigationUntil   DateTime?
+
+  votes                Int          @default(0)
+  level                Int          @default(1)
+  /// percentage 0–100 met decimalen
+  levelProgress        Float        @default(0)
+
+  /// aantal dossiers in bezit
+  dossiers             Int          @default(0)
+
+  /// health in basis points (100.00 HP)
+  hpBP                 Int          @default(10000)
+
+  /// wanneer uitgeschakeld
+  eliminatedAt         DateTime?
+
+  // ⬇️ NIEUW: passief inkomen
+  /// € per uur
+  passivePerHour       Int          @default(0)
+  /// laatste accrual/uitbetaling
+  lastPassiveAt        DateTime?
+
+  // ⬇️ NIEUW: onderzoeks-systeem
+  /// aantal onderzoekers in dienst
+  investigators        Int          @default(0)
+  /// tijdelijk bezet (door lopende onderzoeken)
+  investigatorsBusy    Int          @default(0)
+
+  // Relaties
+  memberships          Membership[]
+  actions              ActionLog[]
+  ownedParties         Party[]      @relation("PartyOwner")
+  privileges           UserPrivilege[]
+
+  // ⬇️ Relaties m.b.t. Investigations
+  investigationsStarted  Investigation[] @relation("InvestigatorAttacker")
+  investigationsTargeted Investigation[] @relation("InvestigatorTarget")
+
+  createdAt            DateTime     @default(now())
+
+  @@index([votes, money])
+  @@index([level, levelProgress])
+}
+
+model UserPrivilege {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id])
+  /// verwijst naar item uit PRIVILEGE_CATALOG
+  key         String
+  purchasedAt DateTime @default(now())
+
+  @@unique([userId, key])
+}
+
+model Party {
+  id          Int          @id @default(autoincrement())
+  name        String       @unique
+  color       String
+  ideology    String?
+  ownerId     Int
+  owner       User         @relation("PartyOwner", fields: [ownerId], references: [id])
+  memberships Membership[]
+  createdAt   DateTime     @default(now())
+}
+
+model Membership {
+  id       Int      @id @default(autoincrement())
+  userId   Int
+  partyId  Int
+  role     String   @default("MEMBER")
+  joinedAt DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id])
+  party    Party    @relation(fields: [partyId], references: [id])
+
+  @@unique([userId, partyId])
+}
+
+model ActionLog {
+  id              Int      @id @default(autoincrement())
+  userId          Int
+  type            String
+  cost            Int
+  influenceChange Int
+  createdAt       DateTime @default(now())
+
+  user            User     @relation(fields: [userId], references: [id])
+}
+
+model Investigation {
+  id            Int       @id @default(autoincrement())
+  attackerId    Int
+  targetId      Int
+
+  /// aantal ingezette onderzoekers
+  assigned      Int
+
+  startedAt     DateTime  @default(now())
+  /// klaar op/na deze tijd
+  etaAt         DateTime
+  completedAt   DateTime?
+  /// verbruikt (bij eerste dossiers-actie)
+  consumedAt    DateTime?
+
+  attacker      User      @relation("InvestigatorAttacker", fields: [attackerId], references: [id])
+  target        User      @relation("InvestigatorTarget", fields: [targetId], references: [id])
+
+  @@index([attackerId, targetId, etaAt])
+}

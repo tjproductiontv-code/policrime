@@ -1,0 +1,4 @@
+"use client";
+export default function SignInPage() {
+  return <div style={{padding:20}}>Sign-in werkt ✅</div>;
+}
