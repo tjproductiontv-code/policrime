@@ -1,27 +1,62 @@
+// app/api/dev/backdate/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
+import { getUserFromCookie } from "../../../../lib/auth";
 import { prisma } from "../../../../lib/prisma";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(req: NextRequest) {
-  const session = await getServerSession();
-  if (!session?.user?.email) {
-    return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+/**
+ * POST /api/dev/backdate?minutes=30
+ * Opties (allemaal optioneel):
+ *  - iso=2025-08-24T10:00:00.000Z  -> zet exact deze tijd
+ *  - hours=2                       -> zet 2 uur terug
+ *  - minutes=30                    -> zet 30 min terug
+ *  - ms=900000                     -> zet 900.000 ms terug
+ * Geen params? default: 1 uur terug.
+ */
+export async function POST(req: NextRequest) {
+  const me = getUserFromCookie(); // { id } | null
+  if (!me?.id) {
+    return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
   }
 
-  const { searchParams } = new URL(req.url);
-  const h = Number(searchParams.get("h") ?? "3"); // default 3 uur
-  if (!Number.isFinite(h) || h <= 0) {
-    return NextResponse.json({ error: "Invalid hours" }, { status: 400 });
+  const url = new URL(req.url);
+  const iso = url.searchParams.get("iso");
+  const hours = Number(url.searchParams.get("hours"));
+  const minutes = Number(url.searchParams.get("minutes"));
+  const ms = Number(url.searchParams.get("ms"));
+
+  let target: Date | null = null;
+
+  if (iso) {
+    const d = new Date(iso);
+    if (!Number.isNaN(d.getTime())) target = d;
   }
 
-  const backdate = new Date(Date.now() - h * 3_600_000);
+  if (!target) {
+    const deltaMs =
+      (Number.isFinite(ms) ? ms : 0) +
+      (Number.isFinite(hours) ? hours * 3_600_000 : 0) +
+      (Number.isFinite(minutes) ? minutes * 60_000 : 0);
 
-  await prisma.user.update({
-    where: { email: session.user.email },
-    data: { lastPassiveAt: backdate },
+    // default: 1 uur terug als er niets is opgegeven
+    target = new Date(Date.now() - (deltaMs || 3_600_000));
+  }
+
+  const before = await prisma.user.findUnique({
+    where: { id: me.id },
+    select: { lastPassiveAt: true },
   });
 
-  return NextResponse.json({ ok: true, backdatedHours: h });
+  const updated = await prisma.user.update({
+    where: { id: me.id },
+    data: { lastPassiveAt: target },
+    select: { lastPassiveAt: true },
+  });
+
+  return NextResponse.json({
+    ok: true,
+    before: before?.lastPassiveAt?.toISOString() ?? null,
+    after: updated.lastPassiveAt?.toISOString() ?? null,
+  });
 }
