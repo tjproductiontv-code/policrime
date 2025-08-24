@@ -1,17 +1,15 @@
 // app/dossiers/use/page.tsx
-import { getUserFromCookie } from "../../lib/auth";
+import { redirect } from "next/navigation";
+import { getUserFromCookie } from "../../../lib/auth";
 import { prisma } from "../../../lib/prisma";
 import UseDossiersForm from "../../../components/UseDossiersForm";
 
 export default async function DossiersUsePage() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.email) return <main className="p-6">Niet ingelogd.</main>;
-
-  const me = await prisma.user.findUnique({
-    where: { email: session.user.email },
-    select: { id: true },
-  });
-  if (!me) return <main className="p-6">User niet gevonden.</main>;
+  // Nieuwe auth-check via cookie
+  const me = getUserFromCookie();
+  if (!me?.id) {
+    redirect("/sign-in");
+  }
 
   // Haal je onderzoeken op (laatste 30, pas gerust aan)
   const investigations = await prisma.investigation.findMany({
@@ -28,8 +26,8 @@ export default async function DossiersUsePage() {
     },
   });
 
-  const ready = investigations.filter(i => i.completedAt && !i.consumedAt);
-  const used  = investigations.filter(i => i.completedAt && i.consumedAt);
+  const ready = investigations.filter((i) => i.completedAt && !i.consumedAt);
+  const used = investigations.filter((i) => i.completedAt && i.consumedAt);
 
   return (
     <main className="p-6 space-y-6">
@@ -49,7 +47,7 @@ export default async function DossiersUsePage() {
               <p className="text-sm text-gray-600">Geen afgeronde onderzoeken beschikbaar.</p>
             ) : (
               <ul className="text-sm list-disc list-inside space-y-1">
-                {ready.map(inv => (
+                {ready.map((inv) => (
                   <li key={inv.id}>
                     {inv.target.name} • ingezet: {inv.assigned} • afgerond op{" "}
                     {new Date(inv.completedAt!).toLocaleString("nl-NL")}
@@ -65,7 +63,7 @@ export default async function DossiersUsePage() {
               <p className="text-sm text-gray-600">Nog niets verbruikt.</p>
             ) : (
               <ul className="text-sm list-disc list-inside space-y-1">
-                {used.map(inv => (
+                {used.map((inv) => (
                   <li key={inv.id}>
                     {inv.target.name} • ingezet: {inv.assigned} • gebruikt op{" "}
                     {new Date(inv.consumedAt!).toLocaleString("nl-NL")}

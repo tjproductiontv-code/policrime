@@ -1,23 +1,21 @@
 // app/api/dev/apply/route.ts
-import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { prisma } from "../../../../lib/prisma";
+import { NextResponse } from "next/server";
+import { getUserFromCookie } from "../../../../lib/auth";
 import { applyPassiveIncome } from "../../../../lib/applyPassiveIncome";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(req: NextRequest) {
-  const session = await getServerSession();
-  if (!session?.user?.email) {
-    return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+export async function POST() {
+  const me = getUserFromCookie();
+  if (!me?.id) {
+    return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
   }
 
-  await applyPassiveIncome(session.user.email);
+  // Roep jouw helper aan; resultaat kan verschillen per implementatie
+  const result = await applyPassiveIncome(me.id as number).catch((e: any) => ({
+    error: String(e?.message ?? e),
+  }));
 
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email },
-    select: { money: true, passivePerHour: true, lastPassiveAt: true, email: true },
-  });
-
-  return NextResponse.json({ user });
+  // Je kunt hier specifieker returnen als je helper een vaste shape geeft
+  return NextResponse.json({ ok: !("error" in (result as any)), result });
 }

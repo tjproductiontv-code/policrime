@@ -1,5 +1,7 @@
 // app/privileges/page.tsx
 export const dynamic = "force-dynamic";
+
+import { redirect } from "next/navigation";
 import { getUserFromCookie } from "../../lib/auth";
 import { prisma } from "../../lib/prisma";
 import { PRIVILEGE_CATALOG } from "../../lib/privileges";
@@ -7,14 +9,14 @@ import PrivilegeCard from "../../components/PrivilegeCard";
 import { settlePassiveIncome } from "../../lib/passive";
 
 export default async function PrivilegesPage() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.email) {
-    return <main className="p-6">Niet ingelogd.</main>;
+  const me = getUserFromCookie();
+  if (!me?.id) {
+    redirect("/sign-in");
   }
 
-  // Basis user
+  // Basis user ophalen
   const user = await prisma.user.findUnique({
-    where: { email: session.user.email },
+    where: { id: me.id },
     select: { id: true },
   });
   if (!user) return <main className="p-6">User niet gevonden.</main>;

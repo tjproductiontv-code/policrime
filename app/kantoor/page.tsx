@@ -1,4 +1,5 @@
 // app/kantoor/page.tsx
+import { redirect } from "next/navigation";
 import { getUserFromCookie } from "../../lib/auth";
 import { prisma } from "../../lib/prisma";
 import { INVESTIGATOR_PRICE } from "../../lib/investigations";
@@ -10,22 +11,32 @@ import Pagination from "./ui/Pagination";
 
 const PAGE_SIZE = 10;
 
-export default async function KantoorPage({ searchParams }: { searchParams: { page?: string } }) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.email) return <main className="p-6">Niet ingelogd.</main>;
+export default async function KantoorPage({
+  searchParams,
+}: {
+  searchParams: { page?: string };
+}) {
+  // Nieuwe auth-check via cookie
+  const me = getUserFromCookie();
+  if (!me?.id) {
+    redirect("/sign-in");
+  }
 
-  const me = await prisma.user.findUnique({
-    where: { email: session.user.email },
+  // Basisgegevens gebruiker (op id)
+  const user = await prisma.user.findUnique({
+    where: { id: me.id },
     select: { id: true, money: true, investigators: true, investigatorsBusy: true },
   });
-  if (!me) return <main className="p-6">User niet gevonden.</main>;
+  if (!user) {
+    return <main className="p-6">User niet gevonden.</main>;
+  }
 
   // Rond aflopende onderzoeken af (en geef busy vrij)
-  await settleInvestigationsForUser(me.id);
+  await settleInvestigationsForUser(user.id);
 
   // Refresh stats
   const fresh = await prisma.user.findUnique({
-    where: { id: me.id },
+    where: { id: user.id },
     select: { money: true, investigators: true, investigatorsBusy: true },
   });
 
@@ -42,7 +53,7 @@ export default async function KantoorPage({ searchParams }: { searchParams: { pa
   });
 
   const where = {
-    attackerId: me.id,
+    attackerId: user.id,
     OR: [{ completedAt: null }, { completedAt: { gte: cutoff } }],
   } as const;
 

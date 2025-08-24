@@ -1,91 +1,41 @@
 // app/sign-in/page.tsx
-"use client";
-
-import { useState, FormEvent } from "react";
-import { signIn } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
+export const dynamic = "force-dynamic";
 
 export default function SignInPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const router = useRouter();
-  const sp = useSearchParams();
-  const callbackUrl = sp.get("callbackUrl") || "/"; // ← 1) fallback
-
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
-
-    const res = await signIn("credentials", {
-      email,
-      password,
-      redirect: false, // we redirecten zelf
-      callbackUrl,     // ← 1) doorgeven
-    });
-
-    setLoading(false);
-
-    if (res?.ok) {
-      router.push(res.url ?? callbackUrl); // ← terug naar vorige pagina of home
-    } else {
-      setError(res?.error || "Onjuiste inloggegevens");
-    }
-  }
-
   return (
-    <div className="min-h-[60vh] flex items-center justify-center p-6">
-      <form
-        onSubmit={handleSubmit}
-        className="w-full max-w-sm space-y-4 border p-6 rounded-xl bg-white shadow"
-      >
-        <h1 className="text-xl font-semibold">Inloggen</h1>
+    <main className="p-6 max-w-sm mx-auto space-y-4">
+      <h1 className="text-2xl font-bold">Inloggen</h1>
 
-        <div className="space-y-1">
-          <label className="block text-sm">Email</label>
+      <form action="/api/auth/login" method="POST" className="space-y-3">
+        <div>
+          <label className="block text-sm mb-1">E-mail</label>
           <input
-            className="w-full border rounded-md p-2"
             type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            name="email"
             required
-            autoComplete="email"
+            className="w-full border rounded px-3 py-2"
+            placeholder="jij@voorbeeld.nl"
           />
         </div>
-
-        <div className="space-y-1">
-          <label className="block text-sm">Wachtwoord</label>
+        <div>
+          <label className="block text-sm mb-1">Wachtwoord</label>
           <input
-            className="w-full border rounded-md p-2"
             type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            name="password"
             required
-            autoComplete="current-password"
+            className="w-full border rounded px-3 py-2"
+            placeholder="••••••••"
           />
         </div>
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
-
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full rounded-md p-2 border bg-gray-100 hover:bg-gray-200 disabled:opacity-60"
-        >
-          {loading ? "Bezig..." : "Log in"}
+        <button className="w-full border rounded px-3 py-2 font-medium">
+          Inloggen
         </button>
-
-        {/* 2) Link naar registreren */}
-        <p className="text-sm text-center mt-2">
-          Nog geen account?{" "}
-          <Link href="/sign-up" className="text-emerald-700 underline">
-            Registreer hier
-          </Link>
-        </p>
       </form>
-    </div>
+
+      <p className="text-sm">
+        Nog geen account? <a className="underline" href="/sign-up">Registreren</a>
+      </p>
+    </main>
   );
 }

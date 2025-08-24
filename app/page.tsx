@@ -1,36 +1,39 @@
 // app/page.tsx
-import { getUserFromCookie } from "../../lib/auth";
+import { redirect } from "next/navigation";
+import { getUserFromCookie } from "../lib/auth";
 import { prisma } from "../lib/prisma";
 import { LEVELS } from "../lib/levels";
 import ProgressBar from "../components/ProgressBar";
 import AddProgressButton from "../components/AddProgressButton";
 import { SpendButton } from "../components/SpendButton";
-import DashboardHealthCard from "../components/DashboardHealthCard"; // ← nieuw
+import DashboardHealthCard from "../components/DashboardHealthCard";
 
-export const revalidate = 0
+export const revalidate = 0;
+
 export default async function HomePage() {
-  const session = await getServerSession(authOptions);
+  const me = getUserFromCookie();
+  if (!me?.id) {
+    redirect("/sign-in");
+  }
 
-  if (!session?.user?.email) {
+  const user = await prisma.user.findUnique({
+    where: { id: me.id },
+    select: { name: true, money: true, level: true, levelProgress: true },
+  });
+
+  if (!user) {
     return (
       <main className="p-6">
-        <h1 className="text-xl font-semibold mb-2">Niet ingelogd</h1>
-        <p>
-          Ga naar <code>/sign-in</code> om in te loggen.
-        </p>
+        <h1 className="text-xl font-semibold mb-2">User niet gevonden</h1>
+        <p>Probeer opnieuw in te loggen via <code>/sign-in</code>.</p>
       </main>
     );
   }
 
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email },
-    select: { name: true, money: true, level: true, levelProgress: true },
-  });
-
-  const displayName = session.user.name ?? user?.name ?? session.user.email;
-  const money = user?.money ?? 0;
-  const level = user?.level ?? 1;
-  const progress = user?.levelProgress ?? 0;
+  const displayName = user.name ?? "Speler";
+  const money = user.money ?? 0;
+  const level = user.level ?? 1;
+  const progress = user.levelProgress ?? 0;
   const info = LEVELS[level] ?? { title: "Onbekend", description: "" };
 
   return (
@@ -50,9 +53,10 @@ export default async function HomePage() {
       </div>
 
       {/* Health kaart */}
-      <DashboardHealthCard /> {/* ← hier komt je ❤️ HP-balk */}
+      <DashboardHealthCard />
 
-   
+      {/* Eventueel: uitgavenknop tonen als je die gebruikt */}
+      {/* <SpendButton /> */}
     </main>
   );
 }

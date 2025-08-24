@@ -1,22 +1,18 @@
 // app/api/dev/whoami/route.ts
 import { NextResponse } from "next/server";
-import { getUserFromCookie } from "<relatief pad>/lib/auth";
+import { getUserFromCookie } from "../../../../lib/auth";
 import { prisma } from "../../../../lib/prisma";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.email) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+  const me = getUserFromCookie(); // { id } | null
+  if (!me?.id) return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
 
   const user = await prisma.user.findUnique({
-    where: { email: session.user.email },
-    select: { email: true, lastPassiveAt: true, passivePerHour: true, money: true },
+    where: { id: me.id },
+    select: { id: true, email: true, name: true }
   });
 
-  return NextResponse.json({
-    sessionEmail: session.user.email,
-    user,
-    iso: user?.lastPassiveAt?.toISOString() ?? null,
-  });
+  return NextResponse.json({ ok: true, me: user });
 }

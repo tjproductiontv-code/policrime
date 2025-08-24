@@ -1,90 +1,58 @@
 // app/api/game/earn/nepfactuur/route.ts
 import { NextResponse } from "next/server";
-import { getUserFromCookie } from "<relatief pad>/lib/auth";
+import { getUserFromCookie } from "../../../../../lib/auth";
 import { prisma } from "../../../../../lib/prisma";
 import {
   TEN_MIN,
-  INVESTIGATION_SEC,
-  onCooldown,
-  secondsRemaining,
   investigationChance,
+  REWARD_NEPFACTUUR_EUR as REWARD
 } from "../../../../../lib/game";
-
 import { addProgress } from "../../../../../lib/leveling";
 import { calcProgress } from "../../../../../lib/progressActions";
 
+export const dynamic = "force-dynamic";
+
 export async function POST() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.email) {
-    return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
-  }
+  const me = getUserFromCookie();
+  if (!me?.id) return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
+
+  const now = new Date();
 
   const user = await prisma.user.findUnique({
-    where: { email: session.user.email },
-    select: {
-      id: true,
-      money: true,
-      lastNepfactuurAt: true,
-      investigationUntil: true,
-      level: true,
-    },
+    where: { id: me.id },
+    select: { id: true, money: true, level: true, lastNepfactuurAt: true, investigationUntil: true }
   });
-  if (!user) {
-    return NextResponse.json({ error: "USER_NOT_FOUND" }, { status: 404 });
+  if (!user) return NextResponse.json({ error: "USER_NOT_FOUND" }, { status: 404 });
+
+  // cooldown
+  if (user.lastNepfactuurAt && user.lastNepfactuurAt.getTime() + TEN_MIN * 1000 > now.getTime()) {
+    return NextResponse.json({ error: "COOLDOWN" }, { status: 400 });
   }
 
-  // Onderzoek actief?
-  const investigationRemain = secondsRemaining(user.investigationUntil);
-  if (investigationRemain > 0) {
-    return NextResponse.json(
-      { error: "UNDER_INVESTIGATION", remaining: investigationRemain },
-      { status: 423 }
-    );
-  }
+  // kans op onderzoek
+  const chance = investigationChance("nepfactuur", user.level ?? 1);
+  const triggerInvestigation = Math.random() < chance;
+  const investigationUntil = triggerInvestigation ? new Date(now.getTime() + TEN_MIN * 1000) : user.investigationUntil ?? null;
 
-  // Cooldown?
-  const cd = onCooldown(user.lastNepfactuurAt, TEN_MIN);
-  if (cd > 0) {
-    return NextResponse.json({ error: "COOLDOWN", remaining: cd }, { status: 429 });
-  }
-
-  // Relatieve kans op onderzoek: base(25%) × 0.95^(level-1)
-  const chance = investigationChance("nepfactuur", user.level);
-  const fail = Math.random() < chance;
-  if (fail) {
-    const until = new Date(Date.now() + INVESTIGATION_SEC * 1000);
-    await prisma.user.update({
+  // beloning + progress
+  const progressDelta = calcProgress("nepfactuur");
+  const [updated] = await prisma.$transaction([
+    prisma.user.update({
       where: { id: user.id },
-      data: { investigationUntil: until, lastNepfactuurAt: new Date() },
-    });
-    return NextResponse.json(
-      {
-        error: "INVESTIGATION_STARTED",
-        duration: INVESTIGATION_SEC,
-        investigationChance: chance,
+      data: {
+        money: { increment: REWARD },
+        lastNepfactuurAt: now,
+        investigationUntil,
       },
-      { status: 409 }
-    );
-  }
+      select: { money: true, level: true, levelProgress: true }
+    }),
+    prisma.actionLog.create({
+      data: { userId: user.id, type: "EARN_NEPFACTUUR", cost: 0, influenceChange: 0 }
+    }),
+  ]);
 
-  // ✅ Succes
-  const reward = 100;
-  const progressAmount = calcProgress("nepfactuur", user.level);
+  // level-progress doorrekenen (als je addProgress zo gebruikt)
+  await addProgress(user.id, progressDelta);
 
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { money: { increment: reward }, lastNepfactuurAt: new Date() },
-  });
-
-  // update progress (retourneert nieuwe waarden)
-  const updated = await addProgress(user.id, progressAmount);
-
-  return NextResponse.json({
-    ok: true,
-    reward,
-    progressGained: Number(progressAmount.toFixed(2)), // 2 decimalen
-    investigationChance: chance,
-    level: updated.level,
-    levelProgress: Number(updated.levelProgress.toFixed(2)),
-  });
+  return NextResponse.json({ ok: true, money: updated.money });
 }
