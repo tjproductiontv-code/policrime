@@ -2,15 +2,14 @@
 import { NextResponse } from "next/server";
 import { getUserFromCookie } from "../../../../../lib/auth";
 import { prisma } from "../../../../../lib/prisma";
-import {
-  TEN_MIN,
-  investigationChance,
-  REWARD_NEPFACTUUR_EUR as REWARD
-} from "../../../../../lib/game";
+import { TEN_MIN, investigationChance } from "../../../../../lib/game";
 import { addProgress } from "../../../../../lib/leveling";
 import { calcProgress } from "../../../../../lib/progressActions";
 
 export const dynamic = "force-dynamic";
+
+// vaste beloning voor nepfactuur
+const REWARD = 100;
 
 export async function POST() {
   const me = getUserFromCookie();
@@ -24,7 +23,7 @@ export async function POST() {
   });
   if (!user) return NextResponse.json({ error: "USER_NOT_FOUND" }, { status: 404 });
 
-  // cooldown
+  // cooldown check
   if (user.lastNepfactuurAt && user.lastNepfactuurAt.getTime() + TEN_MIN * 1000 > now.getTime()) {
     return NextResponse.json({ error: "COOLDOWN" }, { status: 400 });
   }
@@ -32,10 +31,11 @@ export async function POST() {
   // kans op onderzoek
   const chance = investigationChance("nepfactuur", user.level ?? 1);
   const triggerInvestigation = Math.random() < chance;
-  const investigationUntil = triggerInvestigation ? new Date(now.getTime() + TEN_MIN * 1000) : user.investigationUntil ?? null;
+  const investigationUntil = triggerInvestigation
+    ? new Date(now.getTime() + TEN_MIN * 1000)
+    : user.investigationUntil ?? null;
 
-  // beloning + progress
-  const progressDelta = calcProgress("nepfactuur");
+  // beloning + actie loggen
   const [updated] = await prisma.$transaction([
     prisma.user.update({
       where: { id: user.id },
@@ -51,7 +51,8 @@ export async function POST() {
     }),
   ]);
 
-  // level-progress doorrekenen (als je addProgress zo gebruikt)
+  // level-progress bijwerken
+  const progressDelta = calcProgress("nepfactuur");
   await addProgress(user.id, progressDelta);
 
   return NextResponse.json({ ok: true, money: updated.money });

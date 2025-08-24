@@ -1,84 +1,41 @@
 // app/api/actions/propaganda/route.ts
 import { NextResponse } from "next/server";
-import { prisma } from "../../../../lib/prisma";
 import { getUserFromCookie } from "../../../../lib/auth";
-import { ensureDailyAp } from "../../../../lib/ap";
+import { prisma } from "../../../../lib/prisma";
 
-/**
- * Kosten en opbrengst per intensiteit
- * (we gebruiken de kolom `actionPoints` als "geld")
- */
-const costMap: Record<
-  string,
-  { cost: number; min: number; max: number }
-> = {
-  small:  { cost: 5,  min: 5,  max: 15 },
-  medium: { cost: 10, min: 15, max: 35 },
-  big:    { cost: 20, min: 35, max: 80 },
-};
-
-export function GET() {
-  // GET is niet toegestaan op dit endpoint
-  return new Response(
-    JSON.stringify({ error: "Method Not Allowed" }),
-    {
-      status: 405,
-      headers: {
-        "Content-Type": "application/json",
-        "Allow": "POST",
-      },
-    }
-  );
-}
+export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
-  const auth = getUserFromCookie();
-  if (!auth) {
-    // Niet ingelogd → naar login
-    return NextResponse.redirect(new URL("/login", req.url), 303);
-  }
+  const me = getUserFromCookie();
+  if (!me?.id) return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
 
-  const form = await req.formData();
-  const intensity = String(form.get("intensity") || "small").toLowerCase();
-  const cfg = costMap[intensity] ?? costMap.small;
+  // haal kosten uit body of gebruik default 5
+  const body = await req.json().catch(() => ({} as any));
+  const cost = Number.isFinite(Number(body?.cost)) ? Number(body.cost) : 5;
 
-  // Dagelijkse reset/uitbetaling (zoals je eerder had)
-  await ensureDailyAp(auth.id);
+  // haal saldo op
+  const user = await prisma.user.findUnique({
+    where: { id: me.id },
+    select: { id: true, money: true },
+  });
+  if (!user) return NextResponse.json({ error: "USER_NOT_FOUND" }, { status: 404 });
 
-  const user = await prisma.user.findUnique({ where: { id: auth.id } });
-  if (!user) {
-    // Gebruiker bestaat niet (meer) → terug naar login
-    return NextResponse.redirect(new URL("/login", req.url), 303);
-  }
-
-  // === Belangrijk stuk: te weinig "geld" → redirect naar pagina ===
-  const geld = user.actionPoints; // kolom heet nog zo, maar we tonen dit als "Geld"
-  if (geld < cfg.cost) {
+  // te weinig geld? redirect naar out-of-funds
+  const geld = user.money ?? 0;
+  if (geld < cost) {
     return NextResponse.redirect(new URL("/out-of-funds", req.url), 303);
   }
 
-  // Bepaal invloedstoename (random tussen min/max)
-  const gain = Math.floor(Math.random() * (cfg.max - cfg.min + 1)) + cfg.min;
-
-  // Voer actie + log in 1 transactie
+  // betaal & log actie
   await prisma.$transaction([
     prisma.user.update({
       where: { id: user.id },
-      data: {
-        actionPoints: { decrement: cfg.cost }, // geld - kosten
-        influence: { increment: gain },
-      },
+      data: { money: { decrement: cost } }, // <-- NIET actionPoints
     }),
     prisma.actionLog.create({
-      data: {
-        userId: user.id,
-        type: "PROPAGANDA",
-        cost: cfg.cost,
-        influenceChange: gain,
-      },
+      data: { userId: user.id, type: "PROPAGANDA", cost, influenceChange: 0 },
     }),
   ]);
 
-  // Terug naar dashboard
-  return NextResponse.redirect(new URL("/dashboard", req.url), 303);
+  return NextResponse.json({ ok: true });
 }
