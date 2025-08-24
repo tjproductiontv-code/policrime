@@ -5,7 +5,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
 import { PRIVILEGE_CATALOG } from "@/lib/privileges";
-import PrivilegeCard from "@/components/PrivilegeCard";
+import PrivilegeCard from "../../components/PrivilegeCard";
 import { settlePassiveIncome } from "@/lib/passive";
 
 export default async function PrivilegesPage() {

@@ -1,7 +1,7 @@
 // components/GlobalCooldowns.tsx
 "use client";
 import { useEffect, useState } from "react";
-import Countdown from "@/components/Countdown";
+import Countdown from "./Countdown";
 
 type Status = {
   investigationUntil: string | null;

@@ -2,7 +2,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
-import UseDossiersForm from "@/components/UseDossiersForm";
+import UseDossiersForm from "../../../components/UseDossiersForm";
 
 export default async function DossiersUsePage() {
   const session = await getServerSession(authOptions);

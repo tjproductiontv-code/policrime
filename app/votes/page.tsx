@@ -1,7 +1,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "../api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
-import BuyVotesForm from "@/components/BuyVotesForm";
+import BuyVotesForm from "../../components/BuyVotesForm";
 import { VOTE_PRICE } from "@/lib/game";
 
 export default async function VotesPage() {

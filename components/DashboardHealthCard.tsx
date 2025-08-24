@@ -1,7 +1,7 @@
 // components/DashboardHealthCard.tsx
 import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
-import HealthBar from "@/components/HealthBar";
+import HealthBar from "./HealthBar";
 
 export default async function DashboardHealthCard() {
   const session = await getServerSession();

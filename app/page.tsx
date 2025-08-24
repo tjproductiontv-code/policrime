@@ -3,10 +3,10 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "./api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
 import { LEVELS } from "@/lib/levels";
-import ProgressBar from "@/components/ProgressBar";
-import AddProgressButton from "@/components/AddProgressButton";
-import { SpendButton } from "@/components/SpendButton";
-import DashboardHealthCard from "@/components/DashboardHealthCard"; // ← nieuw
+import ProgressBar from "../components/ProgressBar";
+import AddProgressButton from "../components/AddProgressButton";
+import { SpendButton } from "../components/SpendButton";
+import DashboardHealthCard from "../components/DashboardHealthCard"; // ← nieuw
 
 export const revalidate = 0
 export default async function HomePage() {

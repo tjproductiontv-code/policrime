@@ -6,7 +6,7 @@ import { INVESTIGATOR_PRICE } from "@/lib/investigations";
 import { settleInvestigationsForUser } from "@/lib/settleInvestigations";
 import InvestigatorBuyForm from "./ui/InvestigatorBuyForm";
 import InvestigationStartForm from "./ui/InvestigationStartForm";
-import Countdown from "@/components/Countdown";
+import Countdown from "../../components/Countdown";
 import Pagination from "./ui/Pagination";
 
 const PAGE_SIZE = 10;

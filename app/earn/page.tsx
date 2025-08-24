@@ -1,7 +1,4 @@
 // app/earn/page.tsx
-import { getServerSession } from "next-auth";
-import { authOptions } from "../api/auth/[...nextauth]/route";
-
 import { prisma } from "../../lib/prisma";
 import { TEN_MIN, FOURTEEN_MIN, investigationChance } from "../../lib/game";
 
@@ -9,12 +6,13 @@ import Countdown from "../../components/Countdown";
 import { EarnActionButton } from "../../components/EarnActionButton";
 import InvestigationBanner from "../../components/InvestigationBanner";
 
-export default async function EarnPage() {
-  // Auth check
-  const session = await getServerSession(authOptions);
-  const email = session?.user?.email ?? null;
+// ⬇️ gebruik jouw eigen cookie-auth
+import { getUserFromCookie } from "../../lib/auth";
 
-  if (!email) {
+export default async function EarnPage() {
+  const userFromCookie = getUserFromCookie(); // { id: number } | null
+
+  if (!userFromCookie?.id) {
     return (
       <main className="p-6">
         <h1 className="text-xl font-semibold mb-2">Niet ingelogd</h1>
@@ -25,9 +23,8 @@ export default async function EarnPage() {
     );
   }
 
-  // Minimale usergegevens ophalen
   const user = await prisma.user.findUnique({
-    where: { email },
+    where: { id: userFromCookie.id },
     select: {
       money: true,
       lastNepfactuurAt: true,
@@ -45,7 +42,6 @@ export default async function EarnPage() {
     );
   }
 
-  // Helpers
   const now = Date.now();
   const asReadyISO = (last: Date | null | undefined, cooldownSeconds: number) => {
     if (!last) return null;
@@ -75,11 +71,9 @@ export default async function EarnPage() {
         <p>Huidig saldo: {moneyFormatted}</p>
       </div>
 
-      {/* Toon banner als er een lopend onderzoek is */}
       {locked && <InvestigationBanner untilISO={investigationUntilISO} />}
 
       <ul className="space-y-3">
-        {/* Nepfactuur */}
         <li className="border rounded-lg p-4 flex items-center justify-between">
           <div>
             <p className="font-medium">Nepfactuur goedkeuren</p>
@@ -100,7 +94,6 @@ export default async function EarnPage() {
           />
         </li>
 
-        {/* Vriendje */}
         <li className="border rounded-lg p-4 flex items-center justify-between">
           <div>
             <p className="font-medium">Vriendje een baantje geven</p>

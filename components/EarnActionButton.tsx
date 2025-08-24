@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import Countdown from "@/components/Countdown";
+import Countdown from "./Countdown";
 
 type Props = {
   endpoint: string;

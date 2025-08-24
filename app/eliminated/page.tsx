@@ -1,5 +1,5 @@
 // app/eliminated/page.tsx
-import RestartButton from "@/components/RestartButton";
+import RestartButton from "../../components/RestartButton";
 
 export default function EliminatedPage() {
   return (

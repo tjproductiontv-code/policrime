@@ -1,8 +1,8 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import Countdown from "@/components/Countdown";
-import BuyOffButton from "@/components/BuyOffButton"; // ← deze gebruiken
+import Countdown from "./Countdown";
+import BuyOffButton from "./BuyOffButton"; // ← deze gebruiken
 
 export default function InvestigationBanner({ untilISO }: { untilISO: string | null }) {
   const router = useRouter();
