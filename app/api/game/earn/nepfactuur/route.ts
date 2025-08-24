@@ -51,8 +51,8 @@ export async function POST() {
     }),
   ]);
 
-  // level-progress bijwerken
-  const progressDelta = calcProgress("nepfactuur");
+  // ✅ level-progress bijwerken — calcProgress verwacht 2 params (actie, level)
+  const progressDelta = calcProgress("nepfactuur", user.level ?? 1);
   await addProgress(user.id, progressDelta);
 
   return NextResponse.json({ ok: true, money: updated.money });
