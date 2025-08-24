@@ -3,7 +3,7 @@ import { getUserFromCookie } from "../../lib/auth";
 import { prisma } from "../../lib/prisma";
 import Countdown from "../../components/Countdown";
 import { settlePassiveIncome } from "../../lib/passive";
-import DashboardHealthCard from "../../components/dashboardhealthcard"; // ⬅️ gebruikt voor "Reputatie"
+import DashboardHealthCard from "../../components/DashboardHealthCard"; // ⬅️ gebruikt voor "Reputatie"
 
 export const dynamic = "force-dynamic";
 
