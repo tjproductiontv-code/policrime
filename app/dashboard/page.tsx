@@ -1,15 +1,21 @@
+// app/dashboard/page.tsx
 import { getUserFromCookie } from "../../lib/auth";
 import { prisma } from "../../lib/prisma";
 import Countdown from "../../components/Countdown";
 import { settlePassiveIncome } from "../../lib/passive";
 
+export const dynamic = "force-dynamic";
+
 export default async function Dashboard() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.email) return <main className="p-6">Niet ingelogd.</main>;
+  // ✅ Auth via eigen JWT-cookie
+  const me = getUserFromCookie();
+  if (!me?.id) {
+    return <main className="p-6">Niet ingelogd.</main>;
+  }
 
   // 1) Haal user op (incl. name)
   const user = await prisma.user.findUnique({
-    where: { email: session.user.email },
+    where: { id: me.id },
     select: { id: true, name: true, money: true, passivePerHour: true, lastPassiveAt: true },
   });
   if (!user) return <main className="p-6">User niet gevonden.</main>;
@@ -23,9 +29,9 @@ export default async function Dashboard() {
     select: { name: true, money: true, passivePerHour: true, lastPassiveAt: true },
   });
 
-  const username = fresh?.name ?? user.name; // fallback
-  const money = fresh?.money ?? 0;
-  const perHour = fresh?.passivePerHour ?? 0;
+  const username = fresh?.name ?? user.name;
+  const money = fresh?.money ?? user.money ?? 0;
+  const perHour = fresh?.passivePerHour ?? user.passivePerHour ?? 0;
 
   const nextISO =
     fresh?.lastPassiveAt
