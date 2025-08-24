@@ -5,61 +5,49 @@ import { prisma } from "../../../../lib/prisma";
 
 export const dynamic = "force-dynamic";
 
+const NO_STORE = {
+  "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+  Pragma: "no-cache",
+};
+
+// 10000 = 100.00% (twee decimalen)
+const RESET_HP = 10000;
+
 export async function POST() {
   try {
     const me = await getUserFromCookie();
     if (!me?.id) {
-      return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
+      return NextResponse.json({ ok: false, error: "UNAUTHENTICATED" }, { status: 401, headers: NO_STORE });
     }
 
-    const updated = await prisma.$transaction(async (tx) => {
-      const u = await tx.user.findUnique({
+    const out = await prisma.$transaction(async (tx) => {
+      const before = await tx.user.findUnique({
         where: { id: me.id },
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          money: true,
-          votes: true,
-          dossiers: true,
-          level: true,
-          levelProgress: true,
-          // Deze blijven bestaan en worden NIET aangepast
-          civilServants: true,
-          workspaceUnits: true,
-        },
+        select: { id: true, money: true, votes: true, dossiers: true, hpBP: true, eliminatedAt: true },
       });
-
-      if (!u) throw new Error("UserNotFound");
+      if (!before) throw new Error("UserNotFound");
 
       const newMoney = 0;
-      const newVotes = Math.max(0, (u.votes ?? 0) - 1000);
-      const newDossiers = Math.max(0, Math.floor((u.dossiers ?? 0) / 2));
-      const newLevel = 1;
-      const newLevelProgress = 0;
+      const newVotes = Math.max(0, (before.votes ?? 0) - 1000);
+      const newDossiers = Math.max(0, Math.floor((before.dossiers ?? 0) / 2));
 
-      const after = await tx.user.update({
+      const updated = await tx.user.update({
         where: { id: me.id },
         data: {
-          money: { set: newMoney },
-          votes: { set: newVotes },
-          dossiers: { set: newDossiers },
-          level: { set: newLevel },
-          levelProgress: { set: newLevelProgress },
-          // ⚠️ NIETS aanpassen aan personeel/werkplekken
-          // civilServants / workspaceUnits blijven zoals ze zijn
+          money:        { set: newMoney },
+          votes:        { set: newVotes },
+          dossiers:     { set: newDossiers },
+          level:        { set: 1 },
+          levelProgress:{ set: 0 },
+          hpBP:         { set: RESET_HP },   // ⭐ nu 10000
+          eliminatedAt: { set: null },
         },
         select: {
-          id: true,
-          email: true,
-          name: true,
-          money: true,
-          votes: true,
-          dossiers: true,
-          level: true,
-          levelProgress: true,
-          civilServants: true,
-          workspaceUnits: true,
+          id: true, email: true, name: true,
+          money: true, votes: true, dossiers: true,
+          level: true, levelProgress: true,
+          hpBP: true, eliminatedAt: true,
+          civilServants: true, workspaceUnits: true,
         },
       });
 
@@ -67,34 +55,15 @@ export async function POST() {
         data: { userId: me.id, type: "RESTART_KEEP_STAFF", cost: 0, influenceChange: 0 },
       });
 
-      return {
-        before: {
-          money: u.money ?? 0,
-          votes: u.votes ?? 0,
-          dossiers: u.dossiers ?? 0,
-          level: u.level ?? 1,
-          levelProgress: u.levelProgress ?? 0,
-        },
-        after,
-      };
+      return { before, updated };
     });
 
-    return NextResponse.json({
-      ok: true,
-      user: updated.after,
-      delta: {
-        money: -(updated.before.money ?? 0),
-        votes: (updated.after.votes ?? 0) - (updated.before.votes ?? 0),
-        dossiers: (updated.after.dossiers ?? 0) - (updated.before.dossiers ?? 0),
-        level: (updated.after.level ?? 1) - (updated.before.level ?? 1),
-        levelProgress: (updated.after.levelProgress ?? 0) - (updated.before.levelProgress ?? 0),
-      },
-    });
+    return NextResponse.json({ ok: true, ...out }, { headers: NO_STORE });
   } catch (err: any) {
     if (err?.message === "UserNotFound") {
-      return NextResponse.json({ error: "USER_NOT_FOUND" }, { status: 404 });
+      return NextResponse.json({ ok: false, error: "USER_NOT_FOUND" }, { status: 404, headers: NO_STORE });
     }
     console.error("restart error:", err);
-    return NextResponse.json({ error: "INTERNAL_ERROR" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "INTERNAL_ERROR" }, { status: 500, headers: NO_STORE });
   }
 }

@@ -1,4 +1,3 @@
-// components/RestartButton.tsx
 "use client";
 
 import { useState } from "react";
@@ -11,29 +10,33 @@ export default function RestartButton() {
 
   async function handleClick() {
     setErr(null);
-    const proceed = confirm("Weet je zeker dat je opnieuw wilt beginnen?");
-    if (!proceed) return;
+    if (!confirm("Weet je zeker dat je opnieuw wilt beginnen?")) return;
 
     setLoading(true);
     try {
-      const res = await fetch("/api/game/restart", { method: "POST" });
+      const res = await fetch("/api/game/restart", {
+        method: "POST",
+        credentials: "include", // ⭐ stuur cookies mee
+        cache: "no-store",      // ⭐ geen cache
+        headers: { "Content-Type": "application/json" },
+      });
+
       const data = await res.json().catch(() => ({}));
 
-      if (res.status === 401) {
-        router.push("/login");
-        return;
-      }
       if (!res.ok || data?.ok !== true) {
+        console.error("Restart failed:", { status: res.status, data });
         setErr(data?.error ?? "Reset mislukt");
-        setLoading(false);
         return;
       }
 
-      // Terug naar dashboard met verse data
-      router.replace("/dashboard");
-      router.refresh();
+      // Extra check: log de nieuwe status
+      console.log("Restart OK:", { after: data.after });
+
+      // Harde nav + cache-buster om alles te verversen
+      window.location.assign(`/dashboard?reset=1&ts=${Date.now()}`);
     } catch (e: any) {
       setErr(e?.message ?? "Onbekende fout");
+    } finally {
       setLoading(false);
     }
   }
@@ -52,12 +55,7 @@ export default function RestartButton() {
       >
         {loading ? (
           <>
-            <svg
-              className="h-4 w-4 animate-spin"
-              viewBox="0 0 24 24"
-              fill="none"
-              aria-hidden="true"
-            >
+            <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" d="M4 12a8 8 0 018-8v4" stroke="currentColor" strokeWidth="4" />
             </svg>
