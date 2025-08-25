@@ -57,14 +57,24 @@ export default function NetworkInfoButton() {
               <LevelCard
                 levelNum={1}
                 headline="Vertrouwde relatie"
-                subtitle={`Prijs: ${pctFromBps(DISCOUNT_RANGE[1].minBps)} – ${pctFromBps(DISCOUNT_RANGE[1].maxBps)} van basis`}
-                detail={`Gem. korting ≈ ${avgDiscountText(DISCOUNT_RANGE[1].minBps, DISCOUNT_RANGE[1].maxBps)}`}
+                subtitle={`Prijs: ${pctFromBps(DISCOUNT_RANGE[1].minBps)} – ${pctFromBps(
+                  DISCOUNT_RANGE[1].maxBps
+                )} van basis`}
+                detail={`Gem. korting ≈ ${avgDiscountText(
+                  DISCOUNT_RANGE[1].minBps,
+                  DISCOUNT_RANGE[1].maxBps
+                )}`}
               />
               <LevelCard
                 levelNum={2}
                 headline="Binnenste cirkel"
-                subtitle={`Prijs: ${pctFromBps(DISCOUNT_RANGE[2].minBps)} – ${pctFromBps(DISCOUNT_RANGE[2].maxBps)} van basis`}
-                detail={`Gem. korting ≈ ${avgDiscountText(DISCOUNT_RANGE[2].minBps, DISCOUNT_RANGE[2].maxBps)}`}
+                subtitle={`Prijs: ${pctFromBps(DISCOUNT_RANGE[2].minBps)} – ${pctFromBps(
+                  DISCOUNT_RANGE[2].maxBps
+                )} van basis`}
+                detail={`Gem. korting ≈ ${avgDiscountText(
+                  DISCOUNT_RANGE[2].minBps,
+                  DISCOUNT_RANGE[2].maxBps
+                )}`}
               />
             </div>
 
