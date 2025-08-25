@@ -8,7 +8,7 @@ import Countdown from "./Countdown";
 type Props = {
   endpoint: string;
   label: string;
-  /** Absolute eindtijd (ISO) wanneer de cooldown ophoudt */
+  /** Absolute eindtijd (ISO) wanneer de cooldown ophoudt (server truth) */
   readyAt?: string | null;
   /** Fallback in seconden (alleen gebruiken als je geen readyAt kunt doorgeven) */
   initialCooldown?: number;
@@ -25,7 +25,7 @@ export function EarnActionButton({
 }: Props) {
   const router = useRouter();
 
-  // Als we geen readyAt hebben, gebruiken we een lokale target-tijd op basis van initialCooldown
+  // Als we geen readyAt hebben, gebruik lokale target-tijd op basis van initialCooldown (in seconden)
   const [fallbackTargetMs, setFallbackTargetMs] = useState<number | null>(() =>
     initialCooldown > 0 ? Date.now() + initialCooldown * 1000 : null
   );
@@ -67,31 +67,54 @@ export function EarnActionButton({
   const onCooldown = remainingSec > 0;
 
   const [loading, setLoading] = useState(false);
+  const [flash, setFlash] = useState<string | null>(null); // 👈 nieuw
 
   const onClick = async () => {
     if (onCooldown || loading || locked) return;
+
     try {
       setLoading(true);
       const res = await fetch(endpoint, { method: "POST" });
 
+      // Probeer response JSON te lezen (ook bij 200)
+      let data: any = null;
+      try {
+        data = await res.json();
+      } catch {
+        data = null;
+      }
+
       if (res.ok) {
-        // server zet nieuwe cooldown; UI verversen
+        // 🎉 Succes: toon reward/caught feedback als meegegeven
+        if (data && typeof data.rewardVotes === "number" && data.rewardVotes > 0) {
+          setFlash(`+${data.rewardVotes} stemmen ontvangen`);
+          setTimeout(() => setFlash(null), 4000);
+        } else if (data && data.caught) {
+          setFlash("Gepakt!");
+          setTimeout(() => setFlash(null), 4000);
+        }
+
         router.refresh();
         window.dispatchEvent(new Event("cooldowns:update"));
         return;
       }
 
-      // Server kan teruggeven dat er (nog) cooldown is
-      const data: any = await res.json().catch(() => ({}));
+      // Server kan COOLDOWN teruggeven
       if (data?.error === "COOLDOWN") {
-        // Als server remaining seconden teruggeeft en we géén readyAt gebruiken,
-        // stel de lokale fallback-target in zodat de knop live aftelt.
-        if (!readyAt && typeof data.remaining === "number" && data.remaining > 0) {
-          setFallbackTargetMs(Date.now() + data.remaining * 1000);
+        // ✅ accepteer zowel remainingMs (ms) als remaining (sec)
+        const ms =
+          typeof data.remainingMs === "number"
+            ? data.remainingMs
+            : typeof data.remaining === "number"
+            ? data.remaining * 1000
+            : 0;
+
+        if (!readyAt && ms > 0) {
+          setFallbackTargetMs(Date.now() + ms);
         }
       }
 
-      // Altijd even refreshen om state te syncen
+      // UI sync
       router.refresh();
       window.dispatchEvent(new Event("cooldowns:update"));
     } finally {
@@ -122,16 +145,18 @@ export function EarnActionButton({
           Nog <Countdown until={new Date(Date.now() + remainingSec * 1000)} /> cooldown
         </p>
       ) : null}
+
+      {/* 🎉 Flash-bericht */}
+      {flash && <p className="text-sm text-emerald-700 mt-2">{flash}</p>}
     </div>
   );
 }
 
-// "mm:ss"
+/** Format als mm:ss voor tooltip/aria */
 function fmt(totalSec: number) {
   const m = Math.floor(totalSec / 60);
   const s = totalSec % 60;
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
-// Zorg dat beide import-stijlen werken
 export default EarnActionButton;

@@ -18,8 +18,14 @@ model User {
   money              Int       @default(50) @map("actionPoints")
   lastActionReset    DateTime  @default(now())
   influence          Int       @default(0)
-  lastNepfactuurAt   DateTime?
-  lastVriendjeAt     DateTime?
+
+  // Earn-acties (cooldown-timestamps)
+  lastNepfactuurAt    DateTime?
+  lastVriendjeAt      DateTime?
+  lastParkeerboeteAt  DateTime?
+  lastDonatieAt       DateTime?
+  lastStemmenhandelAt DateTime?
+
   investigationUntil DateTime?
   votes              Int       @default(0)
   level              Int       @default(1)
@@ -28,22 +34,25 @@ model User {
   hpBP               Int       @default(10000)
   eliminatedAt       DateTime?
 
-  passivePerHour     Int       @default(0)   // blijft bestaan
+  passivePerHour     Int       @default(0)
   lastPassiveAt      DateTime?
 
   // NIEUW:
-  civilServants      Int       @default(0)   // aantal ambtenaren
-  workspaceUnits     Int       @default(0)   // aantal 2 m²-units (5 per ambtenaar)
+  civilServants      Int       @default(0)
+  workspaceUnits     Int       @default(0)
 
   investigators      Int       @default(0)
   investigatorsBusy  Int       @default(0)
 
   memberships                Membership[]
   actions                    ActionLog[]
-  ownedParties               Party[]        @relation("PartyOwner")
+  ownedParties               Party[]          @relation("PartyOwner")
   privileges                 UserPrivilege[]
-  investigationsStarted      Investigation[] @relation("InvestigatorAttacker")
-  investigationsTargeted     Investigation[] @relation("InvestigatorTarget")
+  investigationsStarted      Investigation[]  @relation("InvestigatorAttacker")
+  investigationsTargeted     Investigation[]  @relation("InvestigatorTarget")
+
+  // Back-relation naar UserConnection
+  connections                UserConnection[]
 
   createdAt          DateTime  @default(now())
 
@@ -107,4 +116,24 @@ model Investigation {
   target      User     @relation("InvestigatorTarget", fields: [targetId], references: [id], onDelete: Cascade)
 
   @@index([attackerId, targetId, etaAt])
+}
+
+// ───────────────────────────────────────────────────────────────────────────────
+// UserConnection (level start op 0)
+// ───────────────────────────────────────────────────────────────────────────────
+model UserConnection {
+  id                 Int       @id @default(autoincrement())
+  userId             Int
+  key                String
+  level              Int       @default(0)   // start nu bij 0
+  progressBps        Int       @default(0)   // 10000 = 100%
+  unlockedAt         DateTime?
+  lastProgressAt     DateTime?
+  discountBps        Int?                    // optioneel
+  discountValidUntil DateTime?
+  lastConnectAt      DateTime?
+
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, key])
 }
