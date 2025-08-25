@@ -8,13 +8,21 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   const me = await getUserFromCookie();
-  if (!me?.id) return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
+  if (!me?.id) {
+    return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
+  }
 
   const uc = await prisma.userConnection.findUnique({
     where: { userId_key: { userId: me.id, key: "anika" } },
-    select: { level: true, discountBps: true, discountValidUntil: true, progressBps: true },
+    select: {
+      level: true,
+      progressBps: true,
+      discountBps: true,
+      discountValidUntil: true,
+    },
   });
 
+  // Niet vrijgespeeld -> meld locked + level/progress
   if (!uc || uc.level < 1) {
     return NextResponse.json({
       ok: true,
@@ -25,28 +33,38 @@ export async function GET() {
   }
 
   const now = Date.now();
-  const needsRefresh = !uc.discountValidUntil || uc.discountValidUntil.getTime() <= now;
+  const isExpired =
+    !uc.discountValidUntil || uc.discountValidUntil.getTime() <= now;
 
-  let discountBps = uc.discountBps;
-  let validUntil = uc.discountValidUntil;
+  let discountBps = uc.discountBps ?? null;
+  let validUntil = uc.discountValidUntil ?? null;
 
-  if (needsRefresh) {
-    discountBps = randomDiscountBps(uc.level);
-    validUntil = new Date(now + 30 * 60 * 1000);
+  // Als er (nog) geen discount staat of hij is verlopen: refresh op basis van level
+  if (isExpired || discountBps == null) {
+    const freshBps = randomDiscountBps(uc.level); // bv. 75–90% op L1, 60–80% op L2
+    const freshUntil = new Date(now + 30 * 60 * 1000); // 30 min geldig
+
     await prisma.userConnection.update({
       where: { userId_key: { userId: me.id, key: "anika" } },
-      data: { discountBps, discountValidUntil: validUntil },
+      data: { discountBps: freshBps, discountValidUntil: freshUntil },
     });
+
+    discountBps = freshBps;
+    validUntil = freshUntil;
   }
 
-  const price = Math.max(1, Math.floor((VOTE_PRICE * discountBps) / 10000));
+  // Extra vangnet: als het om wat voor reden alsnog null is, gebruik 100% (geen korting)
+  const safeBps = typeof discountBps === "number" ? discountBps : 10000;
+
+  // Prijs in hele euro's, min 1
+  const price = Math.max(1, Math.floor((VOTE_PRICE * safeBps) / 10000));
 
   return NextResponse.json({
     ok: true,
     unlocked: true,
     level: uc.level,
-    discountBps,
+    discountBps: safeBps,
     price,
-    validUntil: validUntil?.toISOString() ?? null,
+    validUntil: validUntil ? validUntil.toISOString() : null,
   });
 }
