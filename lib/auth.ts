@@ -1,5 +1,5 @@
 // lib/auth.ts
-import { headers } from "next/headers";
+import { headers, cookies } from "next/headers";
 import { parse } from "cookie";
 import { prisma } from "./prisma";
 
@@ -13,8 +13,8 @@ function decodeToken(token: string): { userId: number } | null {
 
 export async function getUserFromCookie() {
   const rawCookie = headers().get("cookie") || "";
-  const cookies = parse(rawCookie);
-  const token = cookies[COOKIE_NAME];
+  const parsed = parse(rawCookie);
+  const token = parsed[COOKIE_NAME];
   if (!token) return null;
 
   const payload = decodeToken(token);
@@ -26,4 +26,15 @@ export async function getUserFromCookie() {
   });
 
   return user ? { id: user.id } : null;
+}
+
+// ✅ Deze toevoegen om uit te kunnen loggen
+export function clearAuthCookie() {
+  cookies().set(COOKIE_NAME, "", {
+    maxAge: 0,
+    path: "/",
+    httpOnly: true,
+    sameSite: "lax",
+    secure: true,
+  });
 }
