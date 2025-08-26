@@ -11,7 +11,9 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const emailParam = url.searchParams.get("email");
-  const cookieUser = getUserFromCookie(); // { id:number } | null
+
+  // ✅ Voeg 'await' toe!
+  const cookieUser = await getUserFromCookie(); // { id:number } | null
 
   let userId: number | null = cookieUser?.id ?? null;
   let email: string | null = emailParam ?? null;
