@@ -2,9 +2,9 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const COOKIE_NAME = "polipower_token";
+const COOKIE_NAME = "auth_token"; // ✅ Zorg dat dit overeenkomt met login.ts
 
-// Routes die alleen voor ingelogde users zijn
+// Routes waarvoor login vereist is
 const PROTECTED = [
   "/dashboard",
   "/dossiers",
@@ -24,6 +24,7 @@ export function middleware(req: NextRequest) {
     const url = new URL("/sign-in", req.url);
     return NextResponse.redirect(url);
   }
+
   return NextResponse.next();
 }
 
