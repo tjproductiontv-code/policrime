@@ -3,8 +3,7 @@ import Link from "next/link";
 import { prisma } from "../../lib/prisma";
 import { getUserFromCookie } from "../../lib/auth";
 import ConnectButton from "../../components/ConnectButton";
-import NetworkInfoButton from "@/components/NetworkInfoButton";
-
+import NetworkInfoButton from "../../components/NetworkInfoButton";
 
 export const dynamic = "force-dynamic";
 
