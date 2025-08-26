@@ -1,34 +1,25 @@
 // lib/auth.ts
-import { headers, cookies } from "next/headers";
-import { parse } from "cookie";
+import { cookies } from "next/headers";
 import { prisma } from "./prisma";
 
 const COOKIE_NAME = "auth_token";
 
-// Simpel token = userId (string)
-function decodeToken(token: string): { userId: number } | null {
-  const id = Number(token);
-  return Number.isFinite(id) ? { userId: id } : null;
-}
-
 export async function getUserFromCookie() {
-  const rawCookie = headers().get("cookie") || "";
-  const parsed = parse(rawCookie);
-  const token = parsed[COOKIE_NAME];
+  const token = cookies().get(COOKIE_NAME)?.value;
   if (!token) return null;
 
-  const payload = decodeToken(token);
-  if (!payload?.userId) return null;
+  const userId = Number(token);
+  if (!Number.isFinite(userId)) return null;
 
   const user = await prisma.user.findUnique({
-    where: { id: payload.userId },
+    where: { id: userId },
     select: { id: true },
   });
 
   return user ? { id: user.id } : null;
 }
 
-// ✅ Deze toevoegen om uit te kunnen loggen
+// ✅ Uitloggen
 export function clearAuthCookie() {
   cookies().set(COOKIE_NAME, "", {
     maxAge: 0,
