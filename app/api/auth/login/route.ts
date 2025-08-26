@@ -1,3 +1,5 @@
+// app/api/auth/login/route.ts (bijvoorbeeld)
+
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
@@ -12,8 +14,7 @@ const LoginSchema = z.object({
   password: z.string().min(6),
 });
 
-// ✅ Hulpfunctie om JSON of FormData te ondersteunen
-async function parseBody(req: Request): Promise<z.infer<typeof LoginSchema>> {
+async function parseBody(req: Request) {
   const contentType = req.headers.get("content-type") || "";
 
   if (contentType.includes("application/json")) {
@@ -37,46 +38,39 @@ export async function POST(req: Request) {
       select: { id: true, passwordHash: true },
     });
 
-    if (!user) {
+    if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
       return NextResponse.json({ error: "INVALID_CREDENTIALS" }, { status: 401 });
     }
 
-    const isValid = await bcrypt.compare(password, user.passwordHash);
-    if (!isValid) {
-      return NextResponse.json({ error: "INVALID_CREDENTIALS" }, { status: 401 });
-    }
+    // ✅ Belangrijk: secure cookie alleen op productie
+    const isProd = process.env.NODE_ENV === "production";
 
-    // ✅ Zet cookie
     cookies().set(COOKIE_NAME, String(user.id), {
       httpOnly: true,
-      secure: true,
+      secure: isProd,        // ← DIT is cruciaal!
       sameSite: "lax",
       path: "/",
       maxAge: MAX_AGE_SECONDS,
     });
 
-    // ✅ Check of browser HTML verwacht (form / redirect)
+    // HTML redirect voor formulier-submits
     const accept = req.headers.get("accept") || "";
     const contentType = req.headers.get("content-type") || "";
+    const isHtml = accept.includes("text/html");
     const isForm =
       contentType.includes("application/x-www-form-urlencoded") ||
       contentType.includes("multipart/form-data");
 
-    const wantsHtml = accept.includes("text/html") || isForm;
-    if (wantsHtml) {
+    if (isHtml || isForm) {
       return NextResponse.redirect(new URL("/dashboard", req.url), 303);
     }
 
     return NextResponse.json({ ok: true });
   } catch (err: any) {
     if (err?.name === "ZodError") {
-      return NextResponse.json(
-        { error: "BAD_REQUEST", issues: err.flatten() },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "BAD_REQUEST", issues: err.flatten() }, { status: 400 });
     }
-
-    console.error("Login error:", err?.message || err);
+    console.error("Login error:", err);
     return NextResponse.json({ error: "SERVER_ERROR" }, { status: 500 });
   }
 }
