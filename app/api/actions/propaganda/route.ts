@@ -6,8 +6,10 @@ import { prisma } from "../../../../lib/prisma";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
-  const me = getUserFromCookie();
-  if (!me?.id) return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
+  const me = await getUserFromCookie(); // ✅ await toegevoegd
+  if (!me?.id) {
+    return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
+  }
 
   // haal kosten uit body of gebruik default 5
   const body = await req.json().catch(() => ({} as any));
@@ -18,7 +20,9 @@ export async function POST(req: Request) {
     where: { id: me.id },
     select: { id: true, money: true },
   });
-  if (!user) return NextResponse.json({ error: "USER_NOT_FOUND" }, { status: 404 });
+  if (!user) {
+    return NextResponse.json({ error: "USER_NOT_FOUND" }, { status: 404 });
+  }
 
   // te weinig geld? redirect naar out-of-funds
   const geld = user.money ?? 0;
@@ -30,7 +34,7 @@ export async function POST(req: Request) {
   await prisma.$transaction([
     prisma.user.update({
       where: { id: user.id },
-      data: { money: { decrement: cost } }, // <-- NIET actionPoints
+      data: { money: { decrement: cost } },
     }),
     prisma.actionLog.create({
       data: { userId: user.id, type: "PROPAGANDA", cost, influenceChange: 0 },
