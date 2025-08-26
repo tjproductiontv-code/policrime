@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
  * Geen params? default: 1 uur terug.
  */
 export async function POST(req: NextRequest) {
-  const me = getUserFromCookie(); // { id } | null
+  const me = await getUserFromCookie();
   if (!me?.id) {
     return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
   }
@@ -26,11 +26,14 @@ export async function POST(req: NextRequest) {
   const minutes = Number(url.searchParams.get("minutes"));
   const ms = Number(url.searchParams.get("ms"));
 
-  let target: Date | null = null;
+  // Bepaal doeltijd
+  let target: Date;
 
   if (iso) {
     const d = new Date(iso);
-    if (!Number.isNaN(d.getTime())) target = d;
+    if (!Number.isNaN(d.getTime())) {
+      target = d;
+    }
   }
 
   if (!target) {
@@ -39,7 +42,7 @@ export async function POST(req: NextRequest) {
       (Number.isFinite(hours) ? hours * 3_600_000 : 0) +
       (Number.isFinite(minutes) ? minutes * 60_000 : 0);
 
-    // default: 1 uur terug als er niets is opgegeven
+    // standaard 1 uur terug
     target = new Date(Date.now() - (deltaMs || 3_600_000));
   }
 
