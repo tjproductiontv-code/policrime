@@ -1,56 +1,29 @@
 // lib/auth.ts
-import jwt, { JwtPayload } from "jsonwebtoken";
-import { cookies } from "next/headers";
+import { headers } from "next/headers";
+import { parse } from "cookie";
+import { prisma } from "./prisma";
 
-const COOKIE_NAME = "polipower_token";
+const COOKIE_NAME = "auth_token";
 
-type AuthTokenPayload = { id: number };
-
-function getSecret(): string {
-  const s = process.env.JWT_SECRET;
-  if (!s) throw new Error("JWT_SECRET ontbreekt");
-  return s;
+// Simpel token = userId (string)
+function decodeToken(token: string): { userId: number } | null {
+  const id = Number(token);
+  return Number.isFinite(id) ? { userId: id } : null;
 }
 
-export function signToken(payload: AuthTokenPayload): string {
-  return jwt.sign(payload, getSecret(), { expiresIn: "30d" });
-}
+export async function getUserFromCookie() {
+  const rawCookie = headers().get("cookie") || "";
+  const cookies = parse(rawCookie);
+  const token = cookies[COOKIE_NAME];
+  if (!token) return null;
 
-export function getUserFromCookie(): { id: number } | null {
-  const c = cookies().get(COOKIE_NAME);
-  if (!c?.value) return null;
+  const payload = decodeToken(token);
+  if (!payload?.userId) return null;
 
-  try {
-    const decoded = jwt.verify(c.value, getSecret()) as JwtPayload | string;
-    if (typeof decoded === "string") return null;
-    const id = decoded.id as unknown;
-    if (typeof id === "number") return { id };
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-export function setAuthCookie(token: string): void {
-  cookies().set({
-    name: COOKIE_NAME,
-    value: token,
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 30, // 30 dagen
+  const user = await prisma.user.findUnique({
+    where: { id: payload.userId },
+    select: { id: true },
   });
-}
 
-export function clearAuthCookie(): void {
-  cookies().set({
-    name: COOKIE_NAME,
-    value: "",
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    expires: new Date(0),
-  });
+  return user ? { id: user.id } : null;
 }

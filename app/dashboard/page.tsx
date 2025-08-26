@@ -4,7 +4,7 @@ import { getUserFromCookie } from "../../lib/auth";
 import { prisma } from "../../lib/prisma";
 import Countdown from "../../components/Countdown";
 import { settlePassiveIncome } from "../../lib/passive";
-import DashboardHealthCard from "../../components/DashboardHealthCard"; // let op: exacte bestandsnaam/case
+import DashboardHealthCard from "../../components/DashboardHealthCard";
 
 export const dynamic = "force-dynamic";
 
@@ -12,24 +12,24 @@ type Rank = { name: string; blurb: string; icon?: string };
 
 const RANKS: Rank[] = [
   { name: "Beginnend Raadslid",     blurb: "Net binnen, nog te gretig en onervaren.",            icon: "🏛️" },
-  { name: "Vergunningsfluisteraar",  blurb: "Regelt kleine gunsten tegen fooi.",                 icon: "🗂️" },
-  { name: "Subsidieslurper",         blurb: "Jij weet waar het gratis geld verstopt zit.",       icon: "💶" },
-  { name: "Lobbyvriend",             blurb: "Bedrijven zien jou als hun mannetje in de politiek.", icon: "🤝" },
-  { name: "Bureaucratiebaas",        blurb: "Je kent elk achterdeurtje in de regels.",           icon: "🗃️" },
-  { name: "Belastingontduiker",      blurb: "Geld stroomt via schimmige constructies.",          icon: "🕵️‍♂️" },
-  { name: "Budgetplunderaar",        blurb: "Laat miljoenen verdwijnen zonder dat iemand het merkt.", icon: "💸" },
-  { name: "Marionettenmeester",      blurb: "Jij trekt de touwtjes; anderen voeren uit.",        icon: "🎭" },
-  { name: "Olie- & Wapenhandelaar",  blurb: "Internationale lijnen en enorme geldstromen.",      icon: "🛢️" },
-  { name: "De Onschendbare",         blurb: "Jij bént de macht; niemand durft je aan te raken.", icon: "👑" },
+  { name: "Vergunningsfluisteraar", blurb: "Regelt kleine gunsten tegen fooi.",                  icon: "🗂️" },
+  { name: "Subsidieslurper",        blurb: "Jij weet waar het gratis geld verstopt zit.",        icon: "💶" },
+  { name: "Lobbyvriend",            blurb: "Bedrijven zien jou als hun mannetje in de politiek.", icon: "🤝" },
+  { name: "Bureaucratiebaas",       blurb: "Je kent elk achterdeurtje in de regels.",            icon: "🗃️" },
+  { name: "Belastingontduiker",     blurb: "Geld stroomt via schimmige constructies.",           icon: "🕵️‍♂️" },
+  { name: "Budgetplunderaar",       blurb: "Laat miljoenen verdwijnen zonder dat iemand het merkt.", icon: "💸" },
+  { name: "Marionettenmeester",     blurb: "Jij trekt de touwtjes; anderen voeren uit.",         icon: "🎭" },
+  { name: "Olie- & Wapenhandelaar", blurb: "Internationale lijnen en enorme geldstromen.",       icon: "🛢️" },
+  { name: "De Onschendbare",        blurb: "Jij bént de macht; niemand durft je aan te raken.",  icon: "👑" },
 ];
 
 const fmt = (n: number) => n.toLocaleString("nl-NL");
 
-/** Duidelijke voortgangsbalk met label in de balk */
+/** Voortgangsbalk: cap visueel op 100%, label toont 2 decimalen */
 function ProgressBar({
   pct,
   title,
-  size = "lg",        // "sm" | "md" | "lg"
+  size = "lg",
   showLabel = true,
 }: {
   pct: number;
@@ -37,7 +37,9 @@ function ProgressBar({
   size?: "sm" | "md" | "lg";
   showLabel?: boolean;
 }) {
-  const clamped = Math.max(0, Math.min(100, Math.round(pct)));
+  const clamped = Math.max(0, Math.min(100, Number.isFinite(pct) ? pct : 0));
+  const widthPct = clamped.toFixed(2);
+
   const h =
     size === "lg" ? "h-3.5" :
     size === "md" ? "h-2.5" :
@@ -45,10 +47,10 @@ function ProgressBar({
 
   return (
     <div className={`mt-2 w-full rounded-full bg-gray-200/70 overflow-hidden ${h}`} title={title}>
-      <div className="relative h-full bg-emerald-600 transition-[width]" style={{ width: `${clamped}%` }}>
+      <div className="relative h-full bg-emerald-600 transition-[width]" style={{ width: `${widthPct}%` }}>
         {showLabel && (
           <span className="absolute inset-0 flex items-center justify-center text-[11px] font-medium text-white/95 select-none">
-            {clamped}%
+            {Number(widthPct).toFixed(2)}%
           </span>
         )}
       </div>
@@ -82,7 +84,7 @@ function Stat({
   );
 }
 
-/** Rang-grid zonder horizontale scroll; actieve rang uitgelicht */
+/** Rang-grid; actieve rang uitgelicht */
 function RankGrid({ level }: { level: number }) {
   const activeIdx = Math.max(1, Math.min(RANKS.length, level)) - 1;
   return (
@@ -119,7 +121,6 @@ function RankGrid({ level }: { level: number }) {
   );
 }
 
-// ✨ Getypte alias voor je bestaande component (geen ts-ignore nodig)
 const HealthCard = DashboardHealthCard as unknown as ComponentType<{
   title: string;
   value: number | string;
@@ -143,16 +144,16 @@ export default async function Dashboard() {
       dossiers: true,
       votes: true,
       level: true,
-      levelProgress: true, // 0..100
-      hpBP: true,     // reputatie 0..100
+      levelProgress: true, // 0..∞ (float)
+      hpBP: true,
     },
   });
   if (!user) return <main className="p-6">User niet gevonden.</main>;
 
-  // 2) Pas passief inkomen toe
+  // 2) Passief inkomen toepassen
   await settlePassiveIncome(user.id);
 
-  // 3) Vers opgehaald (saldo/lastPassive kunnen veranderd zijn)
+  // 3) Vers opgehaald
   const fresh = await prisma.user.findUnique({
     where: { id: user.id },
     select: {
@@ -174,8 +175,19 @@ export default async function Dashboard() {
   const dossiers = fresh?.dossiers ?? user.dossiers ?? 0;
   const votes = fresh?.votes ?? user.votes ?? 0;
   const level = fresh?.level ?? user.level ?? 1;
-  const levelProgress = Math.max(0, Math.min(100, Math.round((fresh?.levelProgress ?? user.levelProgress ?? 0) as number)));
-  const reputation = Math.max(0, Math.min(100, Math.round((fresh?.hpBP ?? user.hpBP ?? 100) as number)));
+
+  // ✅ progress: tekst mag >100% bij max level; balk capped op 100%
+  const rawProgress = Number(fresh?.levelProgress ?? user.levelProgress ?? 0);
+  const isMaxLevel = level >= 10;
+
+  const levelProgressText = Number(rawProgress.toFixed(2));                // kan > 100
+  const levelProgressBar  = Math.max(0, Math.min(100, levelProgressText)); // cap 0..100
+
+  // reputatie (als hpBP in 0..10000 werkt, pas evt. deling / mapping aan)
+  const reputation = Math.max(
+    0,
+    Math.min(100, Math.round((fresh?.hpBP ?? user.hpBP ?? 100) as number))
+  );
 
   const nextISO =
     fresh?.lastPassiveAt
@@ -211,15 +223,23 @@ export default async function Dashboard() {
           <div className="text-right">
             <div className="text-xs uppercase tracking-wider text-gray-500">Progressie</div>
             <div className="text-sm font-medium text-gray-900">
-              {levelProgress}% <span className="text-gray-500">• Nog {Math.max(0, 100 - levelProgress)}%</span>
+              {levelProgressText.toFixed(2)}%
+              {!isMaxLevel && (
+                <span className="text-gray-500">
+                  {" "}&bull; Nog {(100 - levelProgressBar).toFixed(2)}%
+                </span>
+              )}
             </div>
-            <ProgressBar pct={levelProgress} title={`Progressie: ${levelProgress}%`} />
+            <ProgressBar
+              pct={levelProgressBar} // 🔒 visueel max 100%
+              title={`Progressie: ${levelProgressText.toFixed(2)}%`}
+            />
           </div>
         </div>
         <RankGrid level={level} />
       </section>
 
-      {/* Reputatie — gebruikt je bestaande card component (via getypte alias) */}
+      {/* Reputatie */}
       <section>
         <HealthCard title="Reputatie" value={reputation} percent={reputation} />
       </section>

@@ -7,7 +7,7 @@ import { LEVELS } from "../../../../lib/levels";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const me = getUserFromCookie(); // { id: number } | null
+  const me = getUserFromCookie();
   if (!me?.id) {
     return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
   }
@@ -19,7 +19,7 @@ export async function GET() {
       email: true,
       name: true,
       level: true,
-      levelProgress: true,
+      levelProgress: true, // float
       money: true,
       votes: true,
       dossiers: true,
@@ -39,6 +39,17 @@ export async function GET() {
     return NextResponse.json({ error: "USER_NOT_FOUND" }, { status: 404 });
   }
 
+  // ✨ level info
   const info = LEVELS[user.level] ?? { title: "Onbekend", description: "" };
-  return NextResponse.json({ ...user, ...info });
+
+  // ✨ altijd 2 decimalen voor progress
+  const progress = user.levelProgress !== null
+    ? Number(user.levelProgress.toFixed(2))
+    : 0;
+
+  return NextResponse.json({
+    ...user,
+    ...info,
+    levelProgress: progress,
+  });
 }

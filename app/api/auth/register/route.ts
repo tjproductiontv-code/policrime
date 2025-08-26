@@ -1,80 +1,105 @@
 // app/api/auth/register/route.ts
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { prisma } from "../../../../lib/prisma";
-import { signToken, setAuthCookie } from "../../../../lib/auth";
 import bcrypt from "bcryptjs";
-import { Prisma } from "@prisma/client";
+import { z } from "zod";
 
-export const dynamic = "force-dynamic";
+// Configuratie
+const COOKIE_NAME = "auth_token";
+const FIVE_MIN = 60 * 5;
 
-function isEmail(v: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
-}
+// Validatie-schema
+const Schema = z.object({
+  email: z.string().email(),
+  name: z.string().min(2),
+  password: z.string().min(6),
+});
 
-// (optioneel) blokkeer GET
-export function GET() {
-  return NextResponse.json(
-    { error: "Method Not Allowed" },
-    { status: 405, headers: { Allow: "POST" } }
-  );
+// ✅ Helper om JSON of FormData te lezen
+async function readBody(req: Request) {
+  const ct = req.headers.get("content-type") || "";
+  if (ct.includes("application/json")) {
+    return (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  }
+  const fd = await req.formData().catch(() => null);
+  if (!fd) return {};
+  return {
+    email: fd.get("email")?.toString(),
+    name: fd.get("name")?.toString(),
+    password: fd.get("password")?.toString(),
+  };
 }
 
 export async function POST(req: Request) {
   try {
-    let name = "";
-    let email = "";
-    let password = "";
+    const raw = await readBody(req);
 
-    const ct = req.headers.get("content-type") || "";
+    // 🔎 Tijdelijke logging
+    console.log("register payload:", raw);
 
-    if (ct.includes("application/json")) {
-      const body = await req.json().catch(() => ({} as any));
-      name = String(body?.name ?? "").trim();
-      email = String(body?.email ?? "").toLowerCase().trim();
-      password = String(body?.password ?? "");
-    } else {
-      const form = await req.formData().catch(() => null);
-      if (form) {
-        name = String(form.get("name") ?? "").trim();
-        email = String(form.get("email") ?? "").toLowerCase().trim();
-        password = String(form.get("password") ?? "");
-      }
+    const data = {
+      email: (raw.email as string | undefined)?.trim().toLowerCase(),
+      name: (raw.name as string | undefined)?.trim(),
+      password: (raw.password as string | undefined)?.toString(),
+    };
+
+    const { email, name, password } = Schema.parse(data);
+
+    const exists = await prisma.user.findUnique({ where: { email } });
+    if (exists) {
+      return NextResponse.json({ error: "EMAIL_TAKEN" }, { status: 409 });
     }
 
-    if (!name || !isEmail(email) || password.length < 6) {
+    const passwordHash = await bcrypt.hash(password, 12);
+
+    const user = await prisma.user.create({
+      data: {
+        email,
+        name,
+        passwordHash,
+        money: 50,
+        level: 1,
+        levelProgress: 0,
+        hpBP: 10000,
+      },
+      select: { id: true },
+    });
+
+    const token = String(user.id);
+    cookies().set(COOKIE_NAME, token, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: true,
+      path: "/",
+      maxAge: FIVE_MIN,
+    });
+
+    // ✅ Redirect logica
+    const accept = req.headers.get("accept") || "";
+    const wantsHTML = accept.includes("text/html");
+    const ct = req.headers.get("content-type") || "";
+    const isForm =
+      ct.includes("application/x-www-form-urlencoded") ||
+      ct.includes("multipart/form-data");
+
+    if (wantsHTML || isForm) {
+      return NextResponse.redirect(new URL("/dashboard", req.url), 303);
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (err: any) {
+    if (err?.name === "ZodError") {
       return NextResponse.json(
-        { error: "INVALID_INPUT", detail: "Naam, geldig e-mailadres en wachtwoord (≥6) vereist." },
+        { error: "BAD_REQUEST", details: err.flatten() },
         { status: 400 }
       );
     }
 
-    const passwordHash = await bcrypt.hash(password, 10);
-
-    const user = await prisma.user.create({
-      data: { name, email, passwordHash },
-      select: { id: true },
-    });
-
-    const token = signToken({ id: user.id }); // vereist JWT_SECRET
-    setAuthCookie(token);
-
-    return NextResponse.redirect(new URL("/dashboard", req.url));
-  } catch (err: any) {
-    if (
-      err instanceof Prisma.PrismaClientKnownRequestError &&
-      err.code === "P2002"
-    ) {
-      return NextResponse.json(
-        { error: "EMAIL_IN_USE", detail: "Dit e-mailadres is al geregistreerd." },
-        { status: 409 }
-      );
+    if (err?.code === "P2002") {
+      return NextResponse.json({ error: "EMAIL_TAKEN" }, { status: 409 });
     }
-    if (String(err?.message ?? "").includes("JWT_SECRET")) {
-      return NextResponse.json(
-        { error: "JWT_MISCONFIGURED", detail: "JWT_SECRET ontbreekt in environment." },
-        { status: 500 }
-      );
-    }
+
     console.error("register error:", err);
     return NextResponse.json({ error: "SERVER_ERROR" }, { status: 500 });
   }

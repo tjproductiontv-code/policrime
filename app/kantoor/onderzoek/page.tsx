@@ -1,4 +1,6 @@
 // app/kantoor/onderzoek/page.tsx
+export const dynamic = "force-dynamic";
+
 import { getUserFromCookie } from "../../../lib/auth";
 import { prisma } from "../../../lib/prisma";
 import { settleInvestigationsForUser } from "../../../lib/settleInvestigations";
@@ -9,8 +11,6 @@ import InvestigatorBuyForm from "../../../components/InvestigatorBuyForm";
 import InvestigatorStartCard from "../../../components/InvestigatorStartCard";
 import Countdown from "./ui/Countdown";
 
-export const dynamic = "force-dynamic";
-
 const PAGE_SIZE = 20;
 
 export default async function KantoorOnderzoekPage({
@@ -18,12 +18,14 @@ export default async function KantoorOnderzoekPage({
 }: {
   searchParams?: Record<string, string | string[] | undefined>;
 }) {
-  const me = getUserFromCookie();
+  // ✅ Belangrijk: wacht op gebruiker
+  const me = await getUserFromCookie();
+
   if (!me?.id) {
     return <main className="p-6">Niet ingelogd.</main>;
   }
 
-  // Lopende onderzoeken afwikkelen vóór we tonen
+  // ✅ Lopende onderzoeken afwikkelen vóór we tonen
   await settleInvestigationsForUser(me.id);
 
   // Paginering
@@ -60,7 +62,6 @@ export default async function KantoorOnderzoekPage({
     prisma.investigation.count({ where }),
     prisma.user.findUnique({
       where: { id: me.id },
-      // In consumeer-model: investigators = beschikbaar (idle)
       select: { investigators: true, investigatorsBusy: true, money: true },
     }),
   ]);
@@ -68,7 +69,7 @@ export default async function KantoorOnderzoekPage({
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
   const money = meUser?.money ?? 0;
-  const available = meUser?.investigators ?? 0; // idle = beschikbaar
+  const available = meUser?.investigators ?? 0;
   const price = INVESTIGATOR_PRICE;
   const maxAffordable = Math.floor(money / price);
 
@@ -78,7 +79,8 @@ export default async function KantoorOnderzoekPage({
         <h1 className="text-2xl font-bold">Kantoor • Onderzoek</h1>
         <p className="text-sm text-gray-600">
           Onderzoekers: <b>{available}</b> &middot; Prijs per onderzoeker: €
-          {price.toLocaleString("nl-NL")} &middot; Saldo: €{money.toLocaleString("nl-NL")}
+          {price.toLocaleString("nl-NL")} &middot; Saldo: €
+          {money.toLocaleString("nl-NL")}
         </p>
       </header>
 
@@ -130,9 +132,13 @@ export default async function KantoorOnderzoekPage({
                   return (
                     <tr key={r.id} className="border-b last:border-b-0">
                       <td className="p-2">{r.id}</td>
-                      <td className="p-2">{r.target?.name ?? r.target?.email ?? r.targetId}</td>
+                      <td className="p-2">
+                        {r.target?.name ?? r.target?.email ?? r.targetId}
+                      </td>
                       <td className="p-2">{r.assigned}</td>
-                      <td className="p-2">{new Date(r.startedAt).toLocaleString("nl-NL")}</td>
+                      <td className="p-2">
+                        {new Date(r.startedAt).toLocaleString("nl-NL")}
+                      </td>
                       <td className="p-2">
                         {r.etaAt ? (
                           <Countdown

@@ -9,7 +9,8 @@ import PrivilegeCard from "../../components/PrivilegeCard";
 import { settlePassiveIncome } from "../../lib/passive";
 
 export default async function PrivilegesPage() {
-  const me = getUserFromCookie();
+  const me = await getUserFromCookie(); // ✅ await toegevoegd
+
   if (!me?.id) {
     redirect("/sign-in");
   }

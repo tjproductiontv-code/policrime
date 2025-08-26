@@ -1,7 +1,9 @@
+// components/Sidebar.tsx
 "use client";
+
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useEffect, useState, useCallback } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 function NavItem({
   href,
@@ -18,11 +20,17 @@ function NavItem({
   const active = pathname === href || pathname.startsWith(href + "/");
   const base =
     "group flex items-center justify-between rounded px-3 py-2 hover:bg-gray-50";
-  const activeCls = active ? "bg-gray-100 font-medium text-gray-900" : "text-gray-700";
+  const activeCls = active
+    ? "bg-gray-100 font-medium text-gray-900"
+    : "text-gray-700";
   const content = (
     <>
       <span className="truncate">{children}</span>
-      {disabled && <span className="ml-2 text-gray-400" aria-hidden>🔒</span>}
+      {disabled && (
+        <span className="ml-2 text-gray-400" aria-hidden>
+          🔒
+        </span>
+      )}
     </>
   );
 
@@ -58,59 +66,48 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function Sidebar() {
-  // 🔒 ophalen of Stemmen-handel vrij is (level >= 1)
-  const [unlockedStemmen, setUnlockedStemmen] = useState<boolean | null>(null);
+export default function Sidebar({ user }: { user: { id: number } | null }) {
+  const router = useRouter();
 
-  const fetchStatus = useCallback(async () => {
-    try {
-      const res = await fetch("/api/game/network/status", { cache: "no-store" });
-      const data = await res.json();
-      // als niet ingelogd -> beschouw als locked
-      setUnlockedStemmen(Boolean(data?.unlocked));
-    } catch {
-      setUnlockedStemmen(false);
-    }
-  }, []);
+  const [unlockedStemmen, setUnlockedStemmen] = useState<boolean | null>(null);
 
   useEffect(() => {
     let alive = true;
-
-    const safeFetch = async () => {
-      if (!alive) return;
-      await fetchStatus();
-    };
-
-    // initial load
-    safeFetch();
-
-    // herladen bij focus/visibility (bv. na level-up in een andere tab)
-    const onFocus = () => safeFetch();
-    const onVis = () => document.visibilityState === "visible" && safeFetch();
-
-    // custom event: roep window.dispatchEvent(new Event("network:statusChanged"))
-    // na een succesvolle connectie-build of level-up
-    const onStatusChanged = () => safeFetch();
-
-    window.addEventListener("focus", onFocus);
-    window.addEventListener("visibilitychange", onVis);
-    window.addEventListener("network:statusChanged", onStatusChanged as EventListener);
-
+    (async () => {
+      try {
+        const res = await fetch("/api/game/network/status", {
+          cache: "no-store",
+        });
+        const data = await res.json();
+        if (alive) setUnlockedStemmen(Boolean(data?.unlocked));
+      } catch {
+        if (alive) setUnlockedStemmen(false);
+      }
+    })();
     return () => {
       alive = false;
-      window.removeEventListener("focus", onFocus);
-      window.removeEventListener("visibilitychange", onVis);
-      window.removeEventListener("network:statusChanged", onStatusChanged as EventListener);
     };
-  }, [fetchStatus]);
+  }, []);
+
+  async function handleLogout() {
+    try {
+      await fetch("/api/auth/sign-out", { method: "POST" });
+    } finally {
+      router.push("/sign-in");
+      router.refresh();
+    }
+  }
+
+  // 🔐 Alleen tonen als user is ingelogd
+  if (!user) return null;
 
   return (
-    <aside className="fixed left-0 top-0 bottom-0 w-64 border-r bg-white overflow-y-auto">
+    <aside className="fixed left-0 top-0 bottom-0 w-64 border-r bg-white flex flex-col">
       <div className="p-4">
         <h1 className="text-xl font-bold">PoliPower</h1>
       </div>
 
-      <nav className="px-2 space-y-1">
+      <nav className="px-2 space-y-1 flex-1 overflow-y-auto">
         <NavItem href="/">Dashboard</NavItem>
         <NavItem href="/earn">Geld verdienen</NavItem>
         <NavItem href="/ranking">Ranking</NavItem>
@@ -125,11 +122,8 @@ export default function Sidebar() {
         <NavItem href="/dossiers">Dossiers kopen</NavItem>
         <NavItem href="/dossiers/use">Dossiers gebruiken</NavItem>
 
-        {/* ✅ Netwerk */}
         <SectionTitle>Netwerk</SectionTitle>
         <NavItem href="/netwerk">De Lobby</NavItem>
-
-        {/* slotje zolang niet unlocked; bij null (laden) ook disabled om flikkeren te voorkomen */}
         <NavItem
           href="/netwerk/stemmen-handel"
           disabled={unlockedStemmen === null ? true : !unlockedStemmen}
@@ -142,6 +136,15 @@ export default function Sidebar() {
           Stemmen-handel
         </NavItem>
       </nav>
+
+      <div className="p-4 border-t">
+        <button
+          onClick={handleLogout}
+          className="w-full text-left rounded px-3 py-2 bg-red-600 text-white hover:bg-red-700"
+        >
+          Uitloggen
+        </button>
+      </div>
     </aside>
   );
 }

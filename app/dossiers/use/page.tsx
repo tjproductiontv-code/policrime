@@ -1,28 +1,26 @@
 // app/dossiers/use/page.tsx
+export const dynamic = "force-dynamic";
+
 import { redirect } from "next/navigation";
 import { getUserFromCookie } from "../../../lib/auth";
 import { prisma } from "../../../lib/prisma";
 import { settleInvestigationsForUser } from "../../../lib/settleInvestigations";
 import UseDossiersForm from "./ui/UseDossiersForm";
 
-export const dynamic = "force-dynamic";
-
-// helper: bepaal of target geëlimineerd is (pas aan als je een ander veld gebruikt)
+// helper: bepaal of target geëlimineerd is
 function isEliminatedFromTarget(t: { influence?: number | null } | null | undefined): boolean | null {
-  if (!t || typeof t.influence !== "number") return null; // onbekend
+  if (!t || typeof t.influence !== "number") return null;
   return t.influence <= 0;
 }
 
 export default async function DossiersUsePage() {
-  const me = getUserFromCookie();
+  // ✅ Auth fix
+  const me = await getUserFromCookie();
   if (!me?.id) redirect("/sign-in");
 
-  // eerst afwikkelen
   await settleInvestigationsForUser(me.id);
 
-  // Haal data op
   const [ready, used10, meUser] = await Promise.all([
-    // Gereed: afgerond maar nog NIET gebruikt (laatste 30)
     prisma.investigation.findMany({
       where: { attackerId: me.id, completedAt: { not: null }, consumedAt: null },
       orderBy: { completedAt: "desc" },
@@ -34,7 +32,6 @@ export default async function DossiersUsePage() {
         target: { select: { id: true, name: true } },
       },
     }),
-    // Reeds gebruikt: toon ALLEEN de laatste 10
     prisma.investigation.findMany({
       where: { attackerId: me.id, completedAt: { not: null }, consumedAt: { not: null } },
       orderBy: { consumedAt: "desc" },
@@ -43,7 +40,7 @@ export default async function DossiersUsePage() {
         id: true,
         assigned: true,
         consumedAt: true,
-        target: { select: { id: true, name: true, influence: true } }, // 👈 influence wordt gebruikt voor "gelukt?"
+        target: { select: { id: true, name: true, influence: true } },
       },
     }),
     prisma.user.findUnique({ where: { id: me.id }, select: { dossiers: true } }),
@@ -53,10 +50,8 @@ export default async function DossiersUsePage() {
     <main className="p-6 space-y-6">
       <h1 className="text-2xl font-bold">Dossiers gebruiken</h1>
 
-      {/* Formulier met actuele voorraad */}
       <UseDossiersForm initialDossiers={meUser?.dossiers ?? 0} />
 
-      {/* Overzicht onderzoeken */}
       <section className="rounded border p-4">
         <div className="font-semibold mb-2">Spelers die je onderzocht hebt</div>
 
@@ -73,8 +68,7 @@ export default async function DossiersUsePage() {
                     <div>
                       <span className="font-medium">{inv.target?.name ?? `#${inv.id}`}</span>
                       <span className="text-gray-500">
-                        {" "}
-                        • ingezet: {inv.assigned} • afgerond{" "}
+                        {" "}• ingezet: {inv.assigned} • afgerond{" "}
                         {new Date(inv.completedAt!).toLocaleString("nl-NL")}
                       </span>
                     </div>
@@ -87,7 +81,7 @@ export default async function DossiersUsePage() {
             )}
           </div>
 
-          {/* Reeds gebruikt (laatste 10) */}
+          {/* Reeds gebruikt */}
           <div>
             <div className="font-medium mb-2">Reeds gebruikt (laatste 10)</div>
             {used10.length === 0 ? (
@@ -101,23 +95,16 @@ export default async function DossiersUsePage() {
                       <div>
                         <span className="font-medium">{inv.target?.name ?? `#${inv.id}`}</span>
                         <span className="text-gray-500">
-                          {" "}
-                          • ingezet: {inv.assigned} • gebruikt{" "}
+                          {" "}• ingezet: {inv.assigned} • gebruikt{" "}
                           {new Date(inv.consumedAt!).toLocaleString("nl-NL")}
                         </span>
                       </div>
                       {elim === true ? (
-                        <span className="text-xs text-green-700 bg-green-100 px-2 py-0.5 rounded">
-                          Gelukt
-                        </span>
+                        <span className="text-xs text-green-700 bg-green-100 px-2 py-0.5 rounded">Gelukt</span>
                       ) : elim === false ? (
-                        <span className="text-xs text-red-700 bg-red-100 px-2 py-0.5 rounded">
-                          Mislukt
-                        </span>
+                        <span className="text-xs text-red-700 bg-red-100 px-2 py-0.5 rounded">Mislukt</span>
                       ) : (
-                        <span className="text-xs text-gray-600 bg-gray-100 px-2 py-0.5 rounded">
-                          Onbekend
-                        </span>
+                        <span className="text-xs text-gray-600 bg-gray-100 px-2 py-0.5 rounded">Onbekend</span>
                       )}
                     </li>
                   );

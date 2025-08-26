@@ -3,9 +3,9 @@
 // ✅ Cooldowns per actie (in seconden)
 export const COOLDOWN_SEC = {
   parkeerboete: 60,    // 1 minuut
-  nepfactuur: 14,      // 14 seconden
-  vriendje: 14,        // 14 seconden
-  donatie: 5 * 60,     // 5 minuten
+  nepfactuur: 2 * 60,      // 14 seconden
+  vriendje: 3 * 60,        // 14 seconden
+  donatie: 6 * 60,     // 6 minuten
   stemmenhandel: 5 * 60, // 5 minuten
 } as const;
 

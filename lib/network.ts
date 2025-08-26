@@ -2,10 +2,10 @@
 export type NetworkKey = "anika"; // later uitbreiden
 
 // Progressie (in basispunten)
-export const PROGRESS_LVL1_MIN_BPS = 5;   // 0.05%
-export const PROGRESS_LVL1_MAX_BPS = 13;  // 0.13%
-export const PROGRESS_LVL2_MIN_BPS = 3;   // 0.03%
-export const PROGRESS_LVL2_MAX_BPS = 9;   // 0.09%
+export const PROGRESS_LVL1_MIN_BPS = 50;   // 0.50%
+export const PROGRESS_LVL1_MAX_BPS = 130;  // 0.13%
+export const PROGRESS_LVL2_MIN_BPS = 10;   // 0.10%
+export const PROGRESS_LVL2_MAX_BPS = 50;   // 0.50%
 
 // Succes-kans (0..1)
 export const CONNECT_SUCCESS_CHANCE = 0.75;

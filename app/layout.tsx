@@ -20,8 +20,8 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // Lees JWT uit cookie; { id: number } | null
-  const me = getUserFromCookie();
+  // ✅ Correct gebruik van async functie
+  const me = await getUserFromCookie();
 
   return (
     <html lang="nl">
@@ -29,12 +29,12 @@ export default async function RootLayout({
         <div className="min-h-dvh flex">
           {/* Sidebar links */}
           <aside className="w-64 shrink-0 border-r bg-white">
-            <Sidebar />
+            <Sidebar user={me} /> {/* 👈 Geef user door aan Sidebar */}
           </aside>
 
           {/* Content rechts */}
           <main className="flex-1 p-6">
-            {/* Alleen tonen als je ingelogd bent; anders kunnen deze SSR-componenten crashen of niets renderen */}
+            {/* Alleen tonen als je ingelogd bent */}
             {me?.id ? (
               <>
                 <PassiveIncomeGate />
@@ -42,7 +42,7 @@ export default async function RootLayout({
                 <EliminationGate>{children}</EliminationGate>
               </>
             ) : (
-              // Niet ingelogd: toon gewoon de pagina-inhoud (bijv. sign-in, landing, etc.)
+              // Niet ingelogd: toon alleen content
               <>{children}</>
             )}
           </main>
