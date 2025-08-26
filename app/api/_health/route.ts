@@ -10,8 +10,8 @@ export async function GET() {
     // Ping de database
     await prisma.$queryRaw`SELECT 1`;
 
-    // Optioneel: laat zien of iemand ingelogd is (JWT)
-    const me = getUserFromCookie();
+    // ✅ Await nodig hier!
+    const me = await getUserFromCookie();
 
     return NextResponse.json({
       ok: true,
@@ -22,7 +22,11 @@ export async function GET() {
   } catch (err: any) {
     console.error("health error:", err);
     return NextResponse.json(
-      { ok: false, db: "down", error: String(err?.message ?? err) },
+      {
+        ok: false,
+        db: "down",
+        error: String(err?.message ?? err),
+      },
       { status: 500 }
     );
   }
