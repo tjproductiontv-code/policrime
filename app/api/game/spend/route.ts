@@ -6,7 +6,7 @@ import { prisma } from "../../../../lib/prisma";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
-  const me = getUserFromCookie();
+  const me = await getUserFromCookie();
   if (!me?.id) {
     return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
   }

@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request) {
   try {
     // ✅ Auth via jouw JWT-cookie
-    const me = getUserFromCookie(); // { id: number } | null
+    const me = await getUserFromCookie(); // { id: number } | null
     if (!me?.id) {
       return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
     }

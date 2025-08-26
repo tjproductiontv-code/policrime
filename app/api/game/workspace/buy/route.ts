@@ -9,7 +9,7 @@ function parseQty(v: unknown, min = 1, max = 9999) {
 }
 
 export async function POST(req: Request) {
-  const me = getUserFromCookie();
+  const me = await getUserFromCookie();
   if (!me?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json().catch(() => ({}));

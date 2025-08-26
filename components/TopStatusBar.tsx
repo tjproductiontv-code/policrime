@@ -3,7 +3,7 @@ import { prisma } from "../lib/prisma";
 import { getUserFromCookie } from "../lib/auth";
 
 export default async function TopStatusBar() {
-  const me = getUserFromCookie();
+  const me = await getUserFromCookie();
   if (!me?.id) return null;
 
   const user = await prisma.user.findUnique({

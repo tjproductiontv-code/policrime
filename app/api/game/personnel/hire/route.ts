@@ -1,3 +1,4 @@
+// app/api/game/personnel/hire/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "../../../../../lib/prisma";
 import { getUserFromCookie } from "../../../../../lib/auth";
@@ -12,7 +13,7 @@ function parseQty(v: unknown, min = 1, max = 999) {
 }
 
 export async function POST(req: Request) {
-  const me = getUserFromCookie();
+  const me = await getUserFromCookie(); // ✅ await toegevoegd
   if (!me?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json().catch(() => ({}));
@@ -20,7 +21,6 @@ export async function POST(req: Request) {
 
   const user = await prisma.user.findUnique({
     where: { id: me.id },
-    // 👇 let op: passivePerHour is NETTO wat je nu krijgt
     select: { civilServants: true, passivePerHour: true, workspaceUnits: true },
   });
   if (!user) return NextResponse.json({ error: "UserNotFound" }, { status: 404 });
@@ -28,11 +28,9 @@ export async function POST(req: Request) {
   const current = user.civilServants ?? 0;
   const targetCount = current + qty;
 
-  // Bruto inkomen = netto + huidige salariskosten
   const grossPerHour = (user.passivePerHour ?? 0) + current * EMPLOYEE_HOURLY_COST;
-
-  // Voor targetCount heb je totaal targetCount * cost nodig
   const needIncome = targetCount * EMPLOYEE_HOURLY_COST;
+
   if (grossPerHour < needIncome) {
     return NextResponse.json(
       { error: "INSUFFICIENT_INCOME", have: grossPerHour, need: needIncome },
@@ -40,7 +38,6 @@ export async function POST(req: Request) {
     );
   }
 
-  // Werkplekken: 5 units per ambtenaar
   const maxByWorkspace = Math.floor((user.workspaceUnits ?? 0) / WORKSPACE_UNITS_PER_EMPLOYEE);
   if (targetCount > maxByWorkspace) {
     return NextResponse.json(
@@ -53,7 +50,6 @@ export async function POST(req: Request) {
     );
   }
 
-  // ✅ Doorvoeren: ambtenaren ↑ en netto inkomen/uur ↓ met qty * cost
   const updated = await prisma.user.update({
     where: { id: me.id },
     data: {
@@ -66,6 +62,6 @@ export async function POST(req: Request) {
   return NextResponse.json({
     ok: true,
     civilServants: updated.civilServants,
-    passivePerHour: updated.passivePerHour, // nieuwe netto per uur
+    passivePerHour: updated.passivePerHour,
   });
 }

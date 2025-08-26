@@ -13,7 +13,7 @@ function parseQueryFromUrl(url: string) {
 
 export async function GET(req: Request) {
   // optioneel: alleen voor ingelogden
-  const me = getUserFromCookie();
+  const me = await getUserFromCookie();
   if (!me?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const q = parseQueryFromUrl(req.url).trim();
@@ -30,7 +30,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const me = getUserFromCookie();
+  const me = await getUserFromCookie();
   if (!me?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json().catch(() => ({}));

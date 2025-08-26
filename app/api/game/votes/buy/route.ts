@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 const VOTE_PRICE = 100; // €10 per stem
 
 export async function POST(req: Request) {
-  const me = getUserFromCookie();
+  const me = await getUserFromCookie();
   if (!me?.id) {
     return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
   }
