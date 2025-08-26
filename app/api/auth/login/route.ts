@@ -1,35 +1,36 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { prisma } from "../../../../lib/prisma";
+import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 
 const COOKIE_NAME = "auth_token";
-const FIVE_MIN = 60 * 5;
+const MAX_AGE_SECONDS = 60 * 5; // 5 minuten
 
-const Schema = z.object({
+const LoginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
 });
 
-// ✅ Helper om zowel JSON als FormData te lezen
-async function readBody(req: Request) {
-  const ct = req.headers.get("content-type") || "";
-  if (ct.includes("application/json")) {
-    return (await req.json().catch(() => ({}))) as Record<string, unknown>;
+// ✅ Hulpfunctie om JSON of FormData te ondersteunen
+async function parseBody(req: Request): Promise<z.infer<typeof LoginSchema>> {
+  const contentType = req.headers.get("content-type") || "";
+
+  if (contentType.includes("application/json")) {
+    return await req.json();
   }
-  const fd = await req.formData().catch(() => null);
-  if (!fd) return {};
+
+  const form = await req.formData();
   return {
-    email: fd.get("email")?.toString(),
-    password: fd.get("password")?.toString(),
+    email: String(form.get("email") ?? ""),
+    password: String(form.get("password") ?? ""),
   };
 }
 
 export async function POST(req: Request) {
   try {
-    const raw = await readBody(req);
-    const { email, password } = Schema.parse(raw);
+    const parsed = await parseBody(req);
+    const { email, password } = LoginSchema.parse(parsed);
 
     const user = await prisma.user.findUnique({
       where: { email },
@@ -40,38 +41,42 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "INVALID_CREDENTIALS" }, { status: 401 });
     }
 
-    const ok = await bcrypt.compare(password, user.passwordHash);
-    if (!ok) {
+    const isValid = await bcrypt.compare(password, user.passwordHash);
+    if (!isValid) {
       return NextResponse.json({ error: "INVALID_CREDENTIALS" }, { status: 401 });
     }
 
-    const token = String(user.id);
-    cookies().set(COOKIE_NAME, token, {
+    // ✅ Zet cookie
+    cookies().set(COOKIE_NAME, String(user.id), {
       httpOnly: true,
-      sameSite: "lax",
       secure: true,
+      sameSite: "lax",
       path: "/",
-      maxAge: FIVE_MIN, // 5 min inactivity
+      maxAge: MAX_AGE_SECONDS,
     });
 
-    // ✅ Redirect bij HTML of formulier-verzoek
+    // ✅ Check of browser HTML verwacht (form / redirect)
     const accept = req.headers.get("accept") || "";
-    const wantsHTML = accept.includes("text/html");
-    const ct = req.headers.get("content-type") || "";
+    const contentType = req.headers.get("content-type") || "";
     const isForm =
-      ct.includes("application/x-www-form-urlencoded") ||
-      ct.includes("multipart/form-data");
+      contentType.includes("application/x-www-form-urlencoded") ||
+      contentType.includes("multipart/form-data");
 
-    if (wantsHTML || isForm) {
+    const wantsHtml = accept.includes("text/html") || isForm;
+    if (wantsHtml) {
       return NextResponse.redirect(new URL("/dashboard", req.url), 303);
     }
 
     return NextResponse.json({ ok: true });
   } catch (err: any) {
     if (err?.name === "ZodError") {
-      return NextResponse.json({ error: "BAD_REQUEST", details: err.flatten() }, { status: 400 });
+      return NextResponse.json(
+        { error: "BAD_REQUEST", issues: err.flatten() },
+        { status: 400 }
+      );
     }
-    console.error("login error:", err);
+
+    console.error("Login error:", err?.message || err);
     return NextResponse.json({ error: "SERVER_ERROR" }, { status: 500 });
   }
 }
