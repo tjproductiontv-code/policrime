@@ -1,2 +1,50 @@
-export function GET(){ return new Response(JSON.stringify({error:'Method Not Allowed'}), { status:405, headers:{'Content-Type':'application/json','Allow':'POST'} }); }
-import { NextResponse } from 'next/server'; import { prisma } from '../../../../lib/prisma'; import { getUserFromCookie } from '../../../../lib/auth'; export async function POST(req:Request){ const auth=getUserFromCookie(); if(!auth) return NextResponse.json({error:'Niet ingelogd'},{status:401}); const f=await req.formData(); const name=String(f.get('name')||'').trim(); const color=String(f.get('color')||'#0ea5e9'); const ideology=String(f.get('ideology')||''); if(!name) return NextResponse.json({error:'Partijnaam verplicht'},{status:400}); const existing=await prisma.party.findUnique({where:{name}}); if(existing) return NextResponse.json({error:'Partijnaam bestaat al'},{status:400}); await prisma.party.create({data:{name,color,ideology:ideology||null,ownerId:auth.id, memberships:{create:{userId:auth.id, role:'LEADER'}}}}); return NextResponse.redirect(new URL('/dashboard', req.url)); }
+export function GET() {
+  return new Response(JSON.stringify({ error: 'Method Not Allowed' }), {
+    status: 405,
+    headers: { 'Content-Type': 'application/json', 'Allow': 'POST' },
+  });
+}
+
+import { NextResponse } from 'next/server';
+import { prisma } from '../../../../lib/prisma';
+import { getUserFromCookie } from '../../../../lib/auth';
+
+export async function POST(req: Request) {
+  const auth = await getUserFromCookie(); // ✅ await toegevoegd
+  if (!auth) {
+    return NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 });
+  }
+
+  const f = await req.formData();
+  const name = String(f.get('name') || '').trim();
+  const color = String(f.get('color') || '#0ea5e9');
+  const ideology = String(f.get('ideology') || '');
+
+  if (!name) {
+    return NextResponse.json({ error: 'Partijnaam verplicht' }, { status: 400 });
+  }
+
+  const existing = await prisma.party.findUnique({
+    where: { name },
+  });
+  if (existing) {
+    return NextResponse.json({ error: 'Partijnaam bestaat al' }, { status: 400 });
+  }
+
+  await prisma.party.create({
+    data: {
+      name,
+      color,
+      ideology: ideology || null,
+      ownerId: auth.id,
+      memberships: {
+        create: {
+          userId: auth.id,
+          role: 'LEADER',
+        },
+      },
+    },
+  });
+
+  return NextResponse.redirect(new URL('/dashboard', req.url));
+}
