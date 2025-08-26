@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 const BUYOFF_PRICE = 10; // €10 per seconde? (pas aan naar jouw bedoeling)
 
 export async function POST() {
-  const user = getUserFromCookie();
+  const user = await getUserFromCookie(); // ✅ fix hier
   if (!user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

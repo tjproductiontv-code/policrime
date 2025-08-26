@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 const CONNECT_COOLDOWN_MS = 5 * 60 * 1000;
 
 export async function POST(req: Request) {
-  const me = await getUserFromCookie();
+  const me = await getUserFromCookie(); // ✅ await toegevoegd
   if (!me?.id) {
     return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
   }
@@ -29,7 +29,7 @@ export async function POST(req: Request) {
 
   if (!uc) {
     uc = await prisma.userConnection.create({
-      data: { userId: me.id, key, level: 0, progressBps: 0 }, // ⬅️ level start nu op 0
+      data: { userId: me.id, key, level: 0, progressBps: 0 }, // ⬅️ level start op 0
     });
   }
 
@@ -71,7 +71,7 @@ export async function POST(req: Request) {
   return NextResponse.json({
     ok: true,
     success,
-    addedBps, // bps die je erbij kreeg (0 als fail)
+    addedBps,
     level: updated.level,
     progressBps: updated.progressBps,
   });

@@ -16,7 +16,7 @@ export function GET() {
 
 export async function POST(req: Request) {
   try {
-    const me = getUserFromCookie();
+    const me = await getUserFromCookie(); // ✅ await toegevoegd
     if (!me?.id) {
       return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
     }

@@ -6,7 +6,7 @@ import { addProgress } from "../../../../../lib/leveling";
 import { LEVELS } from "../../../../../lib/levels";
 
 export async function POST(req: Request) {
-  const me = getUserFromCookie();
+  const me = await getUserFromCookie(); // ✅ await toegevoegd
   if (!me?.id) {
     return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
   }
